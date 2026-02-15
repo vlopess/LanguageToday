@@ -1,4 +1,4 @@
-![img](https://github.com/vlopess/LanguageToday/blob/master/src/assets/banner.png?raw=true)
+![img](https://github.com/vlopess/LanguageToday/blob/main/src/assets/banner.png?raw=true)
 # LanguageToday
 
 **LanguageToday** is a free educational web application designed to help learners study **English and Czech** through structured lessons, practical exercises, and AI-assisted guidance.
