@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useContent } from "../../contexts/ContentContext.jsx";
 import { useNavigate } from "react-router-dom";
 import Catharina from '../../assets/Catharina.png';
+import AddContextButton from "../AddContextButton/AddContextButton.jsx";
 
 export const ChatView = () => {
     const scrollRef = useRef(null);
@@ -12,7 +13,7 @@ export const ChatView = () => {
     const [userInput, setUserInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const initialMessageSentRef = useRef(false);
-
+    const [selectedScenario, setSelectedScenario] = useState(false);
     /* ---------- AUTO START ---------- */
     useEffect(() => {
         if (!import.meta.env.VITE_GROQ_API_KEY) return;
@@ -30,51 +31,46 @@ export const ChatView = () => {
     }, [isTyping]);
 
     const getSystemPrompt = () => {
-        if (currentLanguage === "english") {
-            return `
-You are Catharina, a highly advanced English language mentor.
-
-STUDENT:
-- Name: ${userProfile.name}
-- Level: ${userProfile.level}
-
-RULES:
-- Respond ONLY in English
-- Use advanced vocabulary (C1–C2)
-- No basic explanations
-- Be concise (120–180 words)
-- Correct mistakes analytically
-- Focus on nuance, precision, and natural collocations
-
-STYLE:
-- Professional
-- Structured
-- Intellectually demanding
-`;
-        }
-
-        // Default = Czech
+        const scenarioInstructions =
+            currentChat?.scenario?.prompt || "";
         return `
-You are Catharina, a friendly and professional Czech language tutor.
+            You are Catharina, a highly advanced ${currentLanguage} language mentor.
+            
+            STUDENT:
+            - Name: ${userProfile.name}
+            - Level: ${userProfile.level}
+            
+            RULES:
+            - Respond ONLY in English
+            - Keep responses between 60–100 words
+            - Sound natural and human, not academic or institutional
+            - Do NOT write essays
+            - Avoid overly formal openings (no "Dear", no long introductions)
+            - Prioritize dialogue over monologue
+            - Ask ONE meaningful question per turn
+            - Correct mistakes briefly and naturally
+            - Focus on improving fluency, clarity, and sophistication
+            
+            STYLE:
+            - Intelligent but conversational
+            - Supportive and challenging
+            - Direct and engaging
+            - No artificial formality
+            
+            SCENARIO:
+            ${scenarioInstructions}
+            - The answer should be in ${currentLanguage}, if there is a scenario.
+            - Keep responses between 30–60 words
+            
 
-STUDENT:
-- Name: ${userProfile.name}
-- Level: ${userProfile.level}
-
-RULES:
-- Respond in ENGLISH only
-- Czech only as short examples, always explained
-- Be concise (max 120–150 words)
-- Adapt explanations to the student's level
-- Correct mistakes gently
-
-STYLE:
-- Friendly
-- Clear
-- Structured
-`;
-    };
-
+            CONVERSATION METHOD:
+            - Begin naturally, as if this were a real conversation
+            - Do not give structured paragraph instructions
+            - Do not simulate committee language
+            - Keep tone realistic for the scenario
+            - Encourage elaboration with a single follow-up question
+            `;
+    }
 
     /* ---------- MARKDOWN ---------- */
     const renderMarkdown = (text = "") => {
@@ -167,7 +163,6 @@ STYLE:
 
         createNewChat();
     }
-    //link.download = 'harvard_resume.tex';
 
 
 
@@ -269,12 +264,117 @@ STYLE:
         const newChat = {
             id: newId,
             date: date,
+            scenario: null,
             messages: []
         };
         setChatHistory(prev => [newChat, ...prev]);
         setCurrentChat(newChat);
         //sendInitialMessage();
     };
+
+    const handleScenarioSelect = (scenario) => {
+        setSelectedScenario(scenario);
+    };
+
+    const createNewChatWithScenario = (scenario) => {
+        const newId = `chat-${Date.now()}`;
+        const date = new Date().toLocaleDateString();
+
+        const newChat = {
+            id: newId,
+            date: date,
+            scenario: scenario,
+            messages: []
+        };
+
+        setChatHistory(prev => [newChat, ...prev]);
+        console.log('newChat', newChat);
+        setCurrentChat(newChat);
+    };
+
+
+    useEffect(() => {
+        if (!selectedScenario) return;
+
+        const hasCurrentChat = !!currentChat;
+        const hasMessages = currentChatHistoric().length > 0;
+
+        if (!hasCurrentChat) {
+            createNewChatWithScenario(selectedScenario);
+            return;
+        }
+
+        if (hasMessages) {
+            createNewChatWithScenario(selectedScenario);
+            return;
+        }
+
+        setCurrentChat(prev => ({
+            ...prev,
+            scenario: selectedScenario
+        }));
+
+    }, [selectedScenario]);
+
+    useEffect(() => {
+        if (!currentChat) return;
+        const hasScenario = !!currentChat.scenario;
+        const hasMessages = currentChatHistoric().length > 0;
+        console.log('test', hasMessages)
+        if (hasScenario && !hasMessages) {
+            sendInitialScenarioMessage(currentChat);
+        }
+
+    }, [currentChat?.id]);
+
+
+    const sendInitialScenarioMessage = async (chat) => {
+        if (!chat?.scenario) return;
+        if (chat.messages.length > 0) return;
+
+        setIsTyping(true);
+
+        const messagesForApi = [
+            {
+                role: "system",
+                content: getSystemPrompt()
+            }
+        ];
+
+        const response = await fetch(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: "openai/gpt-oss-120b",
+                    messages: messagesForApi,
+                    temperature: 0.7,
+                    max_tokens: 600
+                })
+            }
+        );
+
+        const data = await response.json();
+        const reply =
+            data.choices?.[0]?.message?.content ||
+            "Let's begin.";
+
+        addMessageToChat({
+            role: "assistant",
+            text: reply
+        });
+
+        setIsTyping(false);
+    };
+
+    useEffect(() => {
+        console.log('new value', currentChat);
+    }, [currentChat]);
+
 
     /* ---------- UI ---------- */
     return (
@@ -337,9 +437,15 @@ STYLE:
                         </div>
                     </div>
                 </div>
-                <button onClick={() => navigate("/dashboard")}>
-                    <X/>
-                </button>
+                <div className="flex gap-4">
+                    <AddContextButton
+                        onSelect={handleScenarioSelect}
+                        currentScenario={currentChat?.scenario ?? null}
+                    />
+                    <button onClick={() => navigate("/dashboard")}>
+                        <X/>
+                    </button>
+                </div>
             </header>
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto bg-slate-50">

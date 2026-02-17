@@ -65,6 +65,7 @@ export function ContentProvider({ children }) {
         const storedHistory = localStorage.getItem(historyKey);
         const storedCurrentChat = localStorage.getItem(currentChatKey);
 
+
         setChatHistory(storedHistory ? JSON.parse(storedHistory) : []);
         setCurrentChat(storedCurrentChat ? JSON.parse(storedCurrentChat) : null);
 
@@ -104,6 +105,7 @@ export function ContentProvider({ children }) {
     }, [chatHistory]);
 
     useEffect(() => {
+        console.log('currentChat', currentChat);
         const currentChatKey = getCurrentChatKey(currentLanguage);
         localStorage.setItem(currentChatKey, JSON.stringify(currentChat));
     }, [currentChat]);
