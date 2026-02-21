@@ -60,7 +60,6 @@ export const ChatView = () => {
             SCENARIO:
             ${scenarioInstructions}
             - The answer should be in ${currentLanguage}, if there is a scenario.
-            - Keep responses between 30–60 words
             
 
             CONVERSATION METHOD:
