@@ -42,7 +42,6 @@ export const ChatView = () => {
             
             RULES:
             - Respond ONLY in English
-            - Keep responses between 60–100 words
             - Sound natural and human, not academic or institutional
             - Do NOT write essays
             - Avoid overly formal openings (no "Dear", no long introductions)
