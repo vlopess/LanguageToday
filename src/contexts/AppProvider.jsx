@@ -1,9 +1,12 @@
-import {ContentProvider} from "./ContentContext.jsx";
+import { ContentProvider } from "./ContentContext.jsx";
+import { AuthProvider } from "./AuthContext.jsx";
 
 export function AppProvider({ children }) {
     return (
-        <ContentProvider>
-            {children}
-        </ContentProvider>
+        <AuthProvider>
+            <ContentProvider>
+                {children}
+            </ContentProvider>
+        </AuthProvider>
     );
 }

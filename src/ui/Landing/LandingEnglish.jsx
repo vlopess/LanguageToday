@@ -1,26 +1,22 @@
 import {
     Brain,
     BookOpen,
-    GraduationCap,
     Languages,
-    MessageSquare,
-    RotateCw,
     Sparkles,
     ArrowRight,
     Check,
     Volume2,
     Lock,
     Github,
-    WifiOff,
-    ShieldCheck,
-    Zap,
-    HardDrive, Smartphone
+    Mic, ShieldCheck, Zap, Smartphone
 } from "lucide-react";
 import Logo from "../../assets/logo_en.png";
 import Catharine from "../../assets/catharine_en.png";
+import Teleprompter from "../../assets/teleprompt.png";
 import React from "react";
 import "./Landing.css";
 import {Link} from "react-router-dom";
+import { Globe } from "./Globe.jsx";
 
 export const Landing = () => {
     return (
@@ -47,7 +43,7 @@ export const Landing = () => {
             </nav>
 
             {/* HERO */}
-            <section className="pt-40 pb-24 px-6">
+            <section className="pt-40 pb-24 px-6" style={{overflow: "clip"}}>
                 <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
                     <div>
                         <div
@@ -66,13 +62,24 @@ export const Landing = () => {
                         </p>
 
                         <div className="flex gap-4">
-                            <Link to={'/login-en'}>
+                            <Link to={'/auth'}>
                                 <button
                                     className="bg-[#11457E] text-white px-10 py-5 rounded-2xl font-bold flex items-center gap-3">
                                     Start B2 Training <ArrowRight className="w-5 h-5"/>
                                 </button>
                             </Link>
                         </div>
+                    </div>
+
+                    {/* Globe */}
+                    <div style={{position: "relative", height: 400}} className="hidden lg:block overflow-visible">
+                        <Globe style={{
+                            position: "absolute",
+                            top: "10%",
+                            right: "-40%",
+                            width: "170%",
+                            maxWidth: "none",
+                        }}/>
                     </div>
                 </div>
             </section>
@@ -185,14 +192,14 @@ export const Landing = () => {
 
                         <ul className="space-y-6 max-w-xl mx-auto lg:mx-0">
                             <li className="flex gap-4">
-                                <Check className="w-5 h-5 text-[#11457E] flex-shrink-0" />
+                                <Check className="w-5 h-5 text-[#11457E] flex-shrink-0"/>
                                 <span className="font-medium text-slate-600">
                                     Detailed grammar and style correction
                                 </span>
                             </li>
 
                             <li className="flex gap-4">
-                                <Check className="w-5 h-5 text-[#11457E] flex-shrink-0" />
+                                <Check className="w-5 h-5 text-[#11457E] flex-shrink-0"/>
                                 <span className="font-medium text-slate-600">
                                     B2-level speaking simulations
                                 </span>
@@ -211,6 +218,107 @@ export const Landing = () => {
                 </div>
             </section>
 
+            {/* TELEPROMPTER */}
+            <section className="py-24 px-6 bg-[#0D1B2A]">
+                <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+                    <img src={Teleprompter} alt="Teleprompter" width={450}/>
+
+                    <div>
+                        <div
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest mb-6 border"
+                            style={{
+                                background: 'rgba(255,255,255,0.06)',
+                                color: 'rgba(255,255,255,0.5)',
+                                borderColor: 'rgba(255,255,255,0.1)'
+                            }}>
+                            <Mic className="w-3 h-3"/>
+                            Reading practice
+                        </div>
+                        <h2 className="text-4xl font-extrabold tracking-tighter text-white mb-6">
+                            Teleprompter for fluency training
+                        </h2>
+                        <p className="text-white/60 text-lg mb-8">
+                            AI generates texts calibrated to your level. Read aloud at your own pace with smooth
+                            auto-scroll.
+                        </p>
+                        <ul className="space-y-3 mb-10">
+                            {[
+                                'Practice your pronunciation',
+                                'AI texts calibrated to your CEFR level',
+                                'Adjustable scroll speed and font size'
+                            ].map(item => (
+                                <li key={item} className="flex items-center gap-3">
+                                    <Check className="w-4 h-4 flex-shrink-0" style={{color: '#11457E'}}/>
+                                    <span className="text-white/70 font-medium text-sm">{item}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <Link to="/auth">
+                            <button
+                                className="bg-[#11457E] text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3">
+                                Try the teleprompter <ArrowRight className="w-4 h-4"/>
+                            </button>
+                        </Link>
+                    </div>
+                </div>
+            </section>
+
+            <section className="w-full bg-slate-50 border-t border-slate-200">
+                <div className="max-w-6xl mx-auto px-6 py-20">
+                    <div className="max-w-2xl mb-14">
+                        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+                            All activities run locally on your device
+                        </h2>
+                        <p className="text-slate-600 text-lg leading-relaxed">
+                            Learning activities are executed directly in your browser. Your answers
+                            and progress are processed and stored locally, without being sent to
+                            external servers.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <div className="bg-white rounded-2xl p-6 border border-slate-200">
+                            <div
+                                className="w-12 h-12 rounded-xl bg-[#11457E]/10 text-[#11457E] flex items-center justify-center mb-4">
+                                <ShieldCheck className="w-6 h-6"/>
+                            </div>
+                            <h3 className="font-semibold text-slate-900 mb-2">
+                                Your data stays local
+                            </h3>
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                                Progress and answers remain stored on your own device.
+                            </p>
+                        </div>
+
+                        <div className="bg-white rounded-2xl p-6 border border-slate-200">
+                            <div
+                                className="w-12 h-12 rounded-xl bg-[#11457E]/10 text-[#11457E] flex items-center justify-center mb-4">
+                                <Zap className="w-6 h-6"/>
+                            </div>
+                            <h3 className="font-semibold text-slate-900 mb-2">
+                                Fast interactions
+                            </h3>
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                                Local execution ensures instant feedback and smooth interaction.
+                            </p>
+                        </div>
+
+                        <div className="bg-white rounded-2xl p-6 border border-slate-200">
+                            <div
+                                className="w-12 h-12 rounded-xl bg-[#11457E]/10 text-[#11457E] flex items-center justify-center mb-4">
+                                <Smartphone className="w-6 h-6"/>
+                            </div>
+                            <h3 className="font-semibold text-slate-900 mb-2">
+                                Installable as a PWA
+                            </h3>
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                                Install the app on your device and use it like a native application.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <footer className="py-16 px-6 border-t border-slate-200">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
                     <div className="flex items-center">
@@ -224,7 +332,9 @@ export const Landing = () => {
                     </p>
 
                     <div className="flex gap-6 text-slate-400">
-                        <Github className="w-5 h-5 hover:text-[#11457E]"/>
+                        <a href="https://github.com/vlopess/LanguageToday" target={'_blank'}>
+                            <Github className="w-5 h-5 hover:text-[#11457E]"/>
+                        </a>
                     </div>
                 </div>
             </footer>

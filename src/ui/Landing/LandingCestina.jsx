@@ -14,13 +14,15 @@ import {
     WifiOff,
     ShieldCheck,
     Zap,
-    HardDrive, Smartphone
+    HardDrive, Smartphone, Mic
 } from "lucide-react";
 import Logo from "../../assets/logo.png";
 import Catharine from "../../assets/catharine.png";
 import React from "react";
 import "./Landing.css";
 import {Link} from "react-router-dom";
+import { Globe } from "./Globe.jsx";
+import Teleprompter from "../../assets/teleprompt.png";
 
 export const LandingCestina = () => {
     return (
@@ -47,7 +49,7 @@ export const LandingCestina = () => {
             </nav>
 
             {/* HERO */}
-            <section className="pt-40 pb-24 px-6">
+            <section className="pt-40 pb-24 px-6" style={{ overflow: "clip" }}>
                 <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
                     <div>
                         <div
@@ -66,13 +68,24 @@ export const LandingCestina = () => {
                         </p>
 
                         <div className="flex gap-4">
-                            <Link to={'/login'}>
+                            <Link to={'/auth'}>
                                 <button
                                     className="bg-[#11457E] text-white px-10 py-5 rounded-2xl font-bold flex items-center gap-3">
                                     Start learning <ArrowRight className="w-5 h-5"/>
                                 </button>
                             </Link>
                         </div>
+                    </div>
+
+                    {/* Globe */}
+                    <div style={{ position: "relative", height: 400 }} className="hidden lg:block overflow-visible">
+                        <Globe style={{
+                            position: "absolute",
+                            top: "10%",
+                            right: "-40%",
+                            width: "170%",
+                            maxWidth: "none",
+                        }} />
                     </div>
                 </div>
             </section>
@@ -208,6 +221,50 @@ export const LandingCestina = () => {
                 </div>
             </section>
 
+            {/* TELEPROMPTER */}
+            <section className="py-24 px-6 bg-[#0D1B2A]">
+                <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+                    <img src={Teleprompter} alt="Teleprompter" width={450}/>
+
+                    <div>
+                        <div
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest mb-6 border"
+                            style={{
+                                background: 'rgba(255,255,255,0.06)',
+                                color: 'rgba(255,255,255,0.5)',
+                                borderColor: 'rgba(255,255,255,0.1)'
+                            }}>
+                            <Mic className="w-3 h-3"/>
+                            Reading practice
+                        </div>
+                        <h2 className="text-4xl font-extrabold tracking-tighter text-white mb-6">
+                            Teleprompter for fluency training
+                        </h2>
+                        <p className="text-white/60 text-lg mb-8">
+                            AI generates texts calibrated to your level. Read aloud at your own pace with smooth
+                            auto-scroll.
+                        </p>
+                        <ul className="space-y-3 mb-10">
+                            {[
+                                'Practice your pronunciation',
+                                'AI texts calibrated to your CEFR level',
+                                'Adjustable scroll speed and font size'
+                            ].map(item => (
+                                <li key={item} className="flex items-center gap-3">
+                                    <Check className="w-4 h-4 flex-shrink-0" style={{color: '#11457E'}}/>
+                                    <span className="text-white/70 font-medium text-sm">{item}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <Link to="/auth">
+                            <button
+                                className="bg-[#11457E] text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3">
+                                Try the teleprompter <ArrowRight className="w-4 h-4"/>
+                            </button>
+                        </Link>
+                    </div>
+                </div>
+            </section>
 
             <section className="w-full bg-slate-50 border-t border-slate-200">
                 <div className="max-w-6xl mx-auto px-6 py-20">
@@ -222,7 +279,7 @@ export const LandingCestina = () => {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         <div className="bg-white rounded-2xl p-6 border border-slate-200">
                             <div
                                 className="w-12 h-12 rounded-xl bg-[#11457E]/10 text-[#11457E] flex items-center justify-center mb-4">
@@ -246,19 +303,6 @@ export const LandingCestina = () => {
                             </h3>
                             <p className="text-slate-600 text-sm leading-relaxed">
                                 Local execution ensures instant feedback and smooth interaction.
-                            </p>
-                        </div>
-
-                        <div className="bg-white rounded-2xl p-6 border border-slate-200">
-                            <div
-                                className="w-12 h-12 rounded-xl bg-[#11457E]/10 text-[#11457E] flex items-center justify-center mb-4">
-                                <HardDrive className="w-6 h-6"/>
-                            </div>
-                            <h3 className="font-semibold text-slate-900 mb-2">
-                                No account required
-                            </h3>
-                            <p className="text-slate-600 text-sm leading-relaxed">
-                                No login, no cloud sync, no tracking.
                             </p>
                         </div>
 
@@ -293,7 +337,9 @@ export const LandingCestina = () => {
                     </p>
 
                     <div className="flex gap-6 text-slate-400">
-                        <Github className="w-5 h-5 hover:text-[#11457E]"/>
+                        <a href="https://github.com/vlopess/LanguageToday" target={'_blank'}>
+                            <Github className="w-5 h-5 hover:text-[#11457E]"/>
+                        </a>
                     </div>
                 </div>
             </footer>

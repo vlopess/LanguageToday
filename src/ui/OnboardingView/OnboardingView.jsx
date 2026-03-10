@@ -3,11 +3,22 @@ import { Sparkles } from "lucide-react";
 import React, { useState } from "react";
 import { useContent } from "../../contexts/ContentContext.jsx";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext.jsx";
+
+const CZECH_LEVEL_GUIDE = {
+    A1: "absolute basics: greetings, numbers, colors, family, basic nouns. Present tense only. No cases yet.",
+    A2: "everyday vocabulary, accusative case, simple past (byl/byla), common adjectives, negation.",
+    B1: "nominative/accusative/dative cases, verb aspects (perfective vs imperfective), common idioms, future tense.",
+    B2: "all 7 cases, complex verb conjugations, conditional mood, passive voice, nuanced vocabulary.",
+    C1: "advanced grammar nuances, idiomatic expressions, stylistic variation, formal vs colloquial registers.",
+    C2: "native-level mastery: fixed phrases, regional expressions, literary vocabulary, subtle aspect differences.",
+};
 
 export const OnboardingView = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const navigator = useNavigate();
     const { userProfile, setUserProfile, setSessionTasks, setSessionStories, setReviewTasks, setCurrentLanguage } = useContent();
+    const { userId } = useAuth();
 
 
     // --- GROQ CLOUD API (GRATUITA) INTEGRATION ---
@@ -23,52 +34,82 @@ export const OnboardingView = () => {
             return;
         }
 
-        const systemPrompt = `You are a Czech language educational AI engine. 
-            Generate a study session for the student ${userProfile.name}, level ${userProfile.level}, time ${userProfile.dailyTime}min.
-            Return ONLY a valid JSON with:
-            - tasks: 4 varied exercises (types: "active-recall", "sentence-builder", "feynman").
-            - stories: 
-               - "languageText" MUST be AT LEAST 15 LINES (approx 300 words).
-               - Use \\\\n for explicit line breaks.
-               - "originalText": Accurate mirror translation of the whole text.
-               - Use icon to represent the story
-               - 2 stories
-            - reviewTasks: ${userProfile.dailyTime} exercises for spaced repetition.
-            
-            IMPORTANT for sentence-builder:
-            - "prompt" is the English sentence.
-            - "options" is an array of Czech words.
-            - "correctOrder" is an array of Czech words in correct order.
-            
-            IMPORTANT for active-recall:
-            - "prompt" is question
-            - "answer" is answer
-            - "phonetic" is how to pronunciation that word
-            - "explain" is explain
-            
-            
-            Explanations must be in ENGLISH.
-            Format: 
-            { 
-                "tasks": [...], 
-                "stories": [
-                    {
-                        "title" : value,
-                        "icon" : value,
-                        "languageText" : value,
-                        "originalText" : value, (en)
-                    }
-                ], 
-                "reviewTasks": [
-                     {
-                       "prompt": "ENGLISH word or short phrase",
-                       "answer": "CZECH translation",
-                       "emoji": "Representative emoji",
-                       "explanation": "Brief usage note or gender"
-                     }
-                ] 
-            }
-        `;
+        const systemPrompt = `You are an expert Czech language tutor generating a personalized study session.
+
+STUDENT: ${userProfile.name} | LEVEL: ${userProfile.level} | DAILY GOAL: ${userProfile.dailyTime} min
+
+LEVEL FOCUS for ${userProfile.level}: ${CZECH_LEVEL_GUIDE[userProfile.level] || CZECH_LEVEL_GUIDE.A1}
+
+Output ONLY a valid JSON object with this exact structure:
+{ "tasks": [...], "stories": [...], "reviewTasks": [...] }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TASKS — generate exactly 5 tasks in this order:
+  [active-recall, sentence-builder, feynman, error-correction, active-recall]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TYPE 1 — "active-recall"
+Purpose: Test vocabulary/grammar recall from English prompt.
+Fields:
+  type        → "active-recall"
+  prompt      → Question in English (e.g. "How do you say 'library' in Czech?")
+  answer      → The Czech word or phrase (e.g. "knihovna")
+  phonetic    → Phonetic guide (e.g. "[knih-OV-na]")
+  explain     → 2–3 sentence explanation in English covering gender, usage, and a grammar tip
+  hint        → A subtle clue (e.g. "Starts with K, feminine noun")
+  example     → One Czech sentence using the answer, followed by English translation in parentheses
+
+TYPE 2 — "sentence-builder"
+Purpose: Reconstruct a Czech sentence from shuffled words.
+Fields:
+  type         → "sentence-builder"
+  prompt       → The English sentence to translate (e.g. "The book is on the table.")
+  correctOrder → Array of Czech words/tokens in the EXACT correct order (e.g. ["Kniha", "leží", "na", "stole."])
+  options      → The SAME words from correctOrder, shuffled randomly, PLUS 2 distractor words (e.g. ["na", "leží", "stole.", "Kniha", "velká", "doma"])
+  grammarNote  → Explanation of the key grammar rule demonstrated (in English)
+
+CRITICAL for sentence-builder: options MUST contain every word in correctOrder (no word can be missing). Add exactly 2 extra distractor words.
+
+TYPE 3 — "feynman"
+Purpose: Student explains a concept; compare with expert view.
+Fields:
+  type       → "feynman"
+  prompt     → "Explain [specific Czech grammar concept appropriate for ${userProfile.level}] as if teaching a friend."
+  explain    → Clear, thorough expert explanation in English (4–6 sentences)
+  keyPoints  → Array of exactly 3 concise key points in English
+
+TYPE 4 — "error-correction"
+Purpose: Identify and fix a single grammar error.
+Fields:
+  type              → "error-correction"
+  prompt            → "Find and correct the grammatical error in this Czech sentence:"
+  sentence          → A Czech sentence with exactly ONE clear grammar error appropriate for ${userProfile.level}
+  correctedSentence → The same sentence with the error fixed (nothing else changed)
+  errorExplanation  → Explanation of the specific error and why the correction is correct (in English)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STORIES — generate exactly 2 short Czech stories
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Each story:
+  title        → Czech story title
+  icon         → Single relevant emoji
+  languageText → Czech text, MINIMUM 200 words, use literal \\n for line breaks (not actual newlines)
+  originalText → Complete accurate English translation of the Czech text
+
+Stories must use vocabulary and grammar appropriate for level ${userProfile.level}.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REVIEW TASKS — generate exactly 8 spaced-repetition cards
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Each card:
+  prompt      → English word, phrase, or grammar concept
+  answer      → Czech translation or example
+  emoji       → Relevant single emoji
+  explanation → One sentence usage note or grammar tip in English
+
+All explanations and notes MUST be written in ENGLISH.
+Vocabulary and grammar complexity MUST match level ${userProfile.level}.
+Return ONLY the JSON. No markdown fences. No comments. No extra text.`;
 
         try {
 
@@ -89,11 +130,11 @@ export const OnboardingView = () => {
                             },
                             {
                                 role: 'user',
-                                content: `Generate a study session for ${userProfile.name}, level ${userProfile.level}, daily goal ${userProfile.dailyTime} minutes.`
+                                content: `Generate the Czech study session now. Level: ${userProfile.level}. Return only JSON.`
                             }
                         ],
                         temperature: 0.7,
-                        max_tokens: 2000,
+                        max_tokens: 4096,
                         response_format: { type: "json_object" }
                     })
                 });
@@ -111,26 +152,23 @@ export const OnboardingView = () => {
                 const content = JSON.parse(contentJson);
 
                 // Validate and set the content
-                if (content.tasks && Array.isArray(content.tasks)) {
-                    setSessionTasks(content.tasks);
-                } else {
-                    console.warn("Tasks array missing or invalid in AI response");
-                    setSessionTasks([]);
-                }
+                const tasks = Array.isArray(content.tasks) ? content.tasks : [];
+                const stories = Array.isArray(content.stories) ? content.stories : [];
+                const reviewTasksData = Array.isArray(content.reviewTasks) ? content.reviewTasks : [];
 
-                if (content.stories && Array.isArray(content.stories)) {
-                    setSessionStories(content.stories);
-                } else {
-                    console.warn("Simulations array missing or invalid in AI response");
-                    setSessionStories([]);
-                }
+                if (!tasks.length) console.warn("Tasks array missing or invalid in AI response");
+                if (!stories.length) console.warn("Stories array missing or invalid in AI response");
+                if (!reviewTasksData.length) console.warn("Review tasks array missing or invalid in AI response");
 
-                if (content.reviewTasks && Array.isArray(content.reviewTasks)) {
-                    setReviewTasks(content.reviewTasks);
-                } else {
-                    console.warn("Review tasks array missing or invalid in AI response");
-                    setReviewTasks([]);
-                }
+                const storiesWithIds = await saveLearningSession(userId, 'czech', {
+                    tasks,
+                    reviewTasks: reviewTasksData,
+                    stories,
+                });
+
+                setSessionTasks(tasks);
+                setSessionStories(storiesWithIds);
+                setReviewTasks(reviewTasksData);
                 setUserProfile(prev => ({
                     ...prev,
                     completedOnboarding: true

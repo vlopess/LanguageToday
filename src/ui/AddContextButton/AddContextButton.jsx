@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from "react";
+import ReactDOM from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Briefcase,
@@ -129,7 +130,10 @@ export default function AddContextButton({ onSelect, currentScenario }) {
         setSelected(currentScenario);
     }, [currentScenario]);
 
-    const SelectedIcon = selected?.icon;
+    // Look up icon from the local array (icon can't be persisted to localStorage)
+    const scenarioFromList = scenarios.find(s => s.id === selected?.id);
+    const SelectedIcon = scenarioFromList?.icon || (selected?.isCustom ? MessageSquareDashed : null);
+
     return (
         <>
             <Button
@@ -141,19 +145,32 @@ export default function AddContextButton({ onSelect, currentScenario }) {
                 {selected ? selected.title : "Add Context"}
             </Button>
 
-            <AnimatePresence>
+            {ReactDOM.createPortal(
+                <AnimatePresence>
                 {open && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            backgroundColor: 'rgba(0,0,0,0.5)',
+                            backdropFilter: 'blur(4px)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 9999,
+                            padding: '16px',
+                        }}
+                        onClick={() => setOpen(false)}
                     >
                         <motion.div
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
                             transition={{ duration: 0.2 }}
+                            onClick={e => e.stopPropagation()}
                             className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6"
                         >
                             <div className="flex items-center justify-between mb-6">
@@ -207,7 +224,6 @@ export default function AddContextButton({ onSelect, currentScenario }) {
                                                     id: `custom-${Date.now()}`,
                                                     title: customTitle,
                                                     description: "Custom scenario",
-                                                    icon: MessageSquareDashed,
                                                     prompt: customPrompt,
                                                     isCustom: true
                                                 };
@@ -256,8 +272,9 @@ export default function AddContextButton({ onSelect, currentScenario }) {
                                                         isActive ? "border-primary shadow-md" : "hover:shadow-md"
                                                     }`}
                                                     onClick={() => {
-                                                        setSelected(scenario);
-                                                        onSelect?.(scenario);
+                                                        const { icon: _icon, ...scenarioData } = scenario;
+                                                        setSelected(scenarioData);
+                                                        onSelect?.(scenarioData);
                                                         setOpen(false);
                                                     }}
                                                 >
@@ -284,7 +301,9 @@ export default function AddContextButton({ onSelect, currentScenario }) {
                         </motion.div>
                     </motion.div>
                 )}
-            </AnimatePresence>
+                </AnimatePresence>,
+                document.body
+            )}
         </>
     );
 }

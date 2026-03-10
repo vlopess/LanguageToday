@@ -3,11 +3,22 @@ import { Sparkles } from "lucide-react";
 import React, { useState } from "react";
 import { useContent } from "../../contexts/ContentContext.jsx";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext.jsx";
+
+const ENGLISH_LEVEL_GUIDE = {
+    A1: { label: "Beginner",           focus: "simple present, basic vocabulary (100 most common words), affirmative sentences, greetings.",                                                      avoid: "complex tenses, subordinate clauses, idioms" },
+    A2: { label: "Elementary",         focus: "simple past, future with 'going to', basic questions, common adjectives and adverbs.",                                                             avoid: "conditionals, passive voice, advanced vocabulary" },
+    B1: { label: "Intermediate",       focus: "present perfect, first conditional, modal verbs (can/could/should/must), common phrasal verbs.",                                                   avoid: "inversion, mixed conditionals, advanced collocations" },
+    B2: { label: "Upper-Intermediate", focus: "passive voice, reported speech, second and third conditionals, phrasal verbs, discourse markers.",                                                 avoid: "complex inversion, nominalization, highly formal registers" },
+    C1: { label: "Advanced",           focus: "inversion, mixed conditionals, modal perfects, nominalization, subjunctive, hedging language, advanced collocations.",                             avoid: "nothing — demand analytical precision" },
+    C2: { label: "Proficient",         focus: "native-level nuance, idiomatic precision, stylistic register shifts, rare collocations, discourse-level coherence.",                               avoid: "nothing — push limits of language mastery" },
+};
 
 export const OnboardingEnglishView = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const navigator = useNavigate();
     const { userProfile, setUserProfile, setSessionTasks, setSessionStories, setReviewTasks, setCurrentLanguage } = useContent();
+    const { userId } = useAuth();
 
     // --- GROQ CLOUD API INTEGRATION ---
     const generateDynamicSession = async () => {
@@ -19,136 +30,84 @@ export const OnboardingEnglishView = () => {
             return;
         }
 
-        const systemPrompt = `
-You are an Advanced English Language Cognitive Training Engine.
+        const level = ENGLISH_LEVEL_GUIDE[userProfile.level] || ENGLISH_LEVEL_GUIDE.B1;
 
-This is NOT a beginner session.
-The student does NOT want basic vocabulary.
-Everything must be intellectually demanding.
+        const systemPrompt = `You are an expert English language tutor generating a structured study session.
 
-Student profile:
-- Name: ${userProfile.name}
-- Level: ${userProfile.level}
-- Daily study time: ${userProfile.dailyTime} minutes
+STUDENT: ${userProfile.name} | LEVEL: ${userProfile.level} (${level.label}) | DAILY GOAL: ${userProfile.dailyTime} min
 
-GOAL:
-Generate a HIGH-LEVEL English training session (C1–C2).
-Assume the student already masters basic grammar and common vocabulary.
+CONTENT FOCUS for ${userProfile.level}: ${level.focus}
+AVOID: ${level.avoid}
 
-ABSOLUTE RULES:
+Output ONLY a valid JSON object: { “tasks”: [...], “stories”: [...], “reviewTasks”: [...] }
 
-1) DO NOT use:
-- Basic daily vocabulary (e.g., house, food, job, family, happy, sad, big, small, etc.)
-- Simple present-only sentences
-- A1/A2 grammar
-- Generic travel or restaurant dialogues
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TASKS — generate exactly 5 tasks in this order:
+  [active-recall, sentence-builder, feynman, error-correction, active-recall]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-2) MUST include:
-- Advanced connectors (Notwithstanding, Albeit, Whereas, Henceforth, Insofar as...)
-- Inversion structures (Rarely have I..., Not only did..., Under no circumstances...)
-- Mixed conditionals
-- Modal nuance (might have, should have been, would rather...)
-- Nominalization (implementation, deterioration, acquisition...)
-- Phrasal verbs with nuance (phase out, bring about, carry out, rule out...)
-- Subjunctive (It is imperative that he be...)
-- Reduced relative clauses
-- Hedging language (arguably, ostensibly, to a certain extent...)
-- Complex clause embedding
+TYPE 1 — “active-recall”
+Purpose: Test recall of a grammar structure or vocabulary item.
+Fields:
+  type     → “active-recall”
+  prompt   → Question in Portuguese asking the student to produce an English structure/word
+  answer   → The correct English answer (a word, phrase, or sentence fragment)
+  phonetic → Phonetic transcription if pronunciation is tricky (IPA or simple guide), else “”
+  explain  → 3–4 sentence explanation in English covering meaning, usage, and a common mistake to avoid
+  hint     → A subtle clue about the answer's form or function (e.g. “An inversion starting with 'Rarely...'”)
+  example  → A complete English sentence showcasing the answer in a realistic context
 
------------------------------------
-TASK STRUCTURE
------------------------------------
+TYPE 2 — “sentence-builder”
+Purpose: Reconstruct an English sentence from shuffled words.
+Fields:
+  type         → “sentence-builder”
+  prompt       → The sentence in Portuguese that the student must translate into English
+  correctOrder → Array of English tokens in the EXACT correct order (e.g. [“Not”, “only”, “did”, “she”, “refuse,”, “but”, “she”, “also”, “filed”, “a”, “complaint.”])
+  options      → The SAME tokens from correctOrder shuffled randomly, PLUS 2 distractor words that don't belong (e.g. [“she”, “Not”, “refuse,”, “filed”, “only”, “also”, “but”, “a”, “did”, “complaint.”, “she”, “quickly”, “because”])
+  grammarNote  → Explanation of the key grammar structure used (in English)
 
-Return ONLY valid JSON.
+CRITICAL: options MUST include every single token from correctOrder (no omissions). Add exactly 2 distractor tokens.
+For ${userProfile.level}: the sentence must use grammar from the CONTENT FOCUS above.
 
-{
-  "tasks": [...],
-  "stories": [...],
-  "reviewTasks": [...]
-}
+TYPE 3 — “feynman”
+Purpose: Student explains a concept in their own words, then compares with expert view.
+Fields:
+  type      → “feynman”
+  prompt    → “Explain [specific grammar/vocabulary concept for ${userProfile.level}] in your own words, as if teaching someone.”
+  explain   → Thorough expert explanation in English (5–7 sentences, cover the concept deeply)
+  keyPoints → Exactly 3 bullet points summarizing the most important aspects
 
------------------------------------
-TASKS (4 total – all complex)
------------------------------------
+TYPE 4 — “error-correction”
+Purpose: Identify and fix a grammar error at level ${userProfile.level}.
+Fields:
+  type              → “error-correction”
+  prompt            → “Find and correct the grammatical error in this sentence:”
+  sentence          → An English sentence with exactly ONE grammar error appropriate for ${userProfile.level}
+  correctedSentence → Identical sentence with only the error fixed
+  errorExplanation  → Explanation of what the error is and the grammar rule that applies (in English)
 
-Use types:
-• "active-recall"
-• "sentence-builder"
-• "feynman"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STORIES — generate exactly 2 stories
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Choose intellectual themes: technology ethics, historical turning point, psychological insight, social dilemma, scientific discovery.
+Each story:
+  title        → Engaging English title
+  icon         → Single relevant emoji
+  languageText → English story, MINIMUM 250 words. Use grammar from level ${userProfile.level} throughout. Use literal \\n for line breaks.
+  originalText → Complete accurate Portuguese translation of the full story
 
-Each task MUST:
-- Demand analytical thinking
-- Focus on advanced grammar or discourse
-- Avoid trivial vocabulary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REVIEW TASKS — generate exactly 10 spaced-repetition cards
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Focus on: vocabulary collocations, phrasal verbs, discourse markers, or grammar patterns appropriate for ${userProfile.level}.
+Each card:
+  prompt      → English word, collocation, or structure prompt
+  answer      → Portuguese equivalent or correct English usage
+  emoji       → Single relevant emoji
+  explanation → One clear sentence in English explaining usage or common confusion
 
-For "sentence-builder":
-- prompt = complex sentence in Portuguese
-- options = shuffled sophisticated English words
-- correctOrder = grammatically advanced final sentence
-
-Sentence must include at least:
-- 1 inversion OR
-- 1 conditional OR
-- 1 modal perfect OR
-- 1 embedded clause
-
-For "active-recall":
-- prompt = conceptual grammar question in Portuguese
-- answer = advanced English sentence
-- phonetic = pronunciation guidance
-- explain = deep grammar explanation in English
-
-For "feynman":
-- prompt = abstract concept (e.g., “Explain the difference between epistemology and ontology in English.”)
-- answer = structured advanced explanation
-
------------------------------------
-STORIES (2 total)
------------------------------------
-
-Each story MUST:
-- Be at least 20 lines (~400+ words)
-- Use advanced vocabulary naturally
-- Include discourse markers
-- Include at least:
-    • 2 inversions
-    • 2 modal perfect forms
-    • 1 mixed conditional
-    • 1 reduced relative clause
-    • 1 subjunctive structure
-- Use \\n for line breaks
-- Include emoji icon
-- Include full accurate Portuguese translation in "originalText"
-
-Themes must be intellectual:
-- Ethics of artificial intelligence
-- Economic collapse scenario
-- Philosophical dilemma
-- Political instability
-- Psychological paradox
-- Scientific breakthrough controversy
-
------------------------------------
-REVIEW TASKS
------------------------------------
-
-Generate ${userProfile.dailyTime} advanced spaced-repetition items.
-
-Each review item MUST:
-- Focus on collocations, phrasal verbs, discourse markers, or advanced structures
-- Avoid single basic word translations
-- Include usage explanation in English
-- Include emoji
-
------------------------------------
-STRICT OUTPUT RULE
------------------------------------
-Return ONLY raw JSON.
-No markdown.
-No explanations.
-No comments.
-No extra text.
-`;
+All content MUST be calibrated to level ${userProfile.level}.
+Return ONLY the JSON. No markdown. No comments. No extra text outside the JSON.`;
 
         try {
             const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -163,11 +122,11 @@ No extra text.
                         { role: 'system', content: systemPrompt },
                         {
                             role: 'user',
-                            content: `Generate a complete English study session for level ${userProfile.level}.`
+                            content: `Generate the English study session now. Level: ${userProfile.level}. Return only JSON.`
                         }
                     ],
                     temperature: 0.7,
-                    max_tokens: 2000,
+                    max_tokens: 4096,
                     response_format: { type: "json_object" }
                 })
             });
@@ -176,9 +135,19 @@ No extra text.
             const contentJson = result.choices?.[0]?.message?.content;
             const content = JSON.parse(contentJson);
 
-            setSessionTasks(Array.isArray(content.tasks) ? content.tasks : []);
-            setSessionStories(Array.isArray(content.stories) ? content.stories : []);
-            setReviewTasks(Array.isArray(content.reviewTasks) ? content.reviewTasks : []);
+            const tasks = Array.isArray(content.tasks) ? content.tasks : [];
+            const stories = Array.isArray(content.stories) ? content.stories : [];
+            const reviewTasksData = Array.isArray(content.reviewTasks) ? content.reviewTasks : [];
+
+            const storiesWithIds = await saveLearningSession(userId, 'english', {
+                tasks,
+                reviewTasks: reviewTasksData,
+                stories,
+            });
+
+            setSessionTasks(tasks);
+            setSessionStories(storiesWithIds);
+            setReviewTasks(reviewTasksData);
 
             setUserProfile(prev => ({
                 ...prev,

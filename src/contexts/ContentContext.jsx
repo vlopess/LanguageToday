@@ -1,4 +1,6 @@
 import {createContext, useContext, useEffect, useState} from 'react';
+import { useAuth } from './AuthContext.jsx';
+import { getChatSessions, getSavedStories } from '../lib/db.js';
 
 const ContentContext = createContext(null);
 
@@ -47,6 +49,8 @@ export function ContentProvider({ children }) {
         return stored ? JSON.parse(stored) : 'czech';
     });
 
+    const { userId } = useAuth();
+
     const [studyMaterial, setStudyMaterial] = useState([]);
 
 
@@ -57,6 +61,7 @@ export function ContentProvider({ children }) {
 
     const [chatHistory, setChatHistory] = useState([]);
     const [currentChat, setCurrentChat] = useState(null);
+    const [needsSessionGeneration, setNeedsSessionGeneration] = useState(false);
 
     useEffect(() => {
         const historyKey = getChatHistoryKey(currentLanguage);
@@ -66,8 +71,21 @@ export function ContentProvider({ children }) {
         const storedCurrentChat = localStorage.getItem(currentChatKey);
 
 
-        setChatHistory(storedHistory ? JSON.parse(storedHistory) : []);
-        setCurrentChat(storedCurrentChat ? JSON.parse(storedCurrentChat) : null);
+        const parseChat = (chat) => {
+            if (!chat?.scenario) return chat;
+            const { icon: _icon, ...scenario } = chat.scenario;
+            return { ...chat, scenario };
+        };
+
+        const parsedHistory = storedHistory
+            ? JSON.parse(storedHistory).map(parseChat)
+            : [];
+        const parsedCurrentChat = storedCurrentChat
+            ? parseChat(JSON.parse(storedCurrentChat))
+            : null;
+
+        setChatHistory(parsedHistory);
+        setCurrentChat(parsedCurrentChat);
 
     }, [currentLanguage]);
 
@@ -110,6 +128,30 @@ export function ContentProvider({ children }) {
         localStorage.setItem(currentChatKey, JSON.stringify(currentChat));
     }, [currentChat]);
 
+
+    useEffect(() => {
+        if (!userId) return;
+
+        // Only force new session generation on actual login, not on page reload
+        if (sessionStorage.getItem('freshLogin') === 'true') {
+            sessionStorage.removeItem('freshLogin');
+            setNeedsSessionGeneration(true);
+        }
+
+        // Load saved stories from DB
+        getSavedStories(userId, currentLanguage).then(stories => {
+            if (stories.length > 0) setSavedStories(stories);
+        });
+
+        // Load chat history from DB
+        getChatSessions(userId, currentLanguage).then(chats => {
+            if (chats.length > 0) {
+                setChatHistory(chats);
+                setCurrentChat(chats[0]);
+            }
+        });
+
+    }, [userId]); // Only fire on login (userId change)
 
     useEffect(() => {
         localStorage.setItem('currentLanguage', JSON.stringify(currentLanguage));
@@ -341,7 +383,9 @@ export function ContentProvider({ children }) {
             currentChat,
             setCurrentChat,
             currentLanguage,
-            setCurrentLanguage
+            setCurrentLanguage,
+            needsSessionGeneration,
+            setNeedsSessionGeneration,
         }}>
             {children}
         </ContentContext.Provider>
