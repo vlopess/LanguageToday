@@ -10,6 +10,7 @@ import { StudyTopic } from "./ui/StudyTopic/StudyTopic.jsx";
 import { TeleprompterView } from "./ui/TeleprompterView/TeleprompterView.jsx";
 import { LandingCestina } from "./ui/Landing/LandingCestina.jsx";
 import { Landing } from "./ui/Landing/LandingEnglish.jsx";
+import { LandingSpanish } from "./ui/Landing/LandingSpanish.jsx";
 import { AuthView } from "./ui/AuthView/AuthView.jsx";
 import { LanguageSelectView } from "./ui/LanguageSelectView/LanguageSelectView.jsx";
 import { Navigate } from "react-router-dom";
@@ -20,6 +21,7 @@ const App = () => (
             <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/czech" element={<LandingCestina />} />
+                <Route path="/spanish" element={<LandingSpanish />} />
                 <Route path="/auth" element={<AuthView />} />
                 <Route path="/onboarding" element={<Navigate to="/language-select" replace />} />
                 <Route path="/language-select" element={<LanguageSelectView />} />

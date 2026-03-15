@@ -6,11 +6,17 @@ const ContentContext = createContext(null);
 
 export function ContentProvider({ children }) {
 
-    const getChatHistoryKey = (lang) =>
-        lang === "english" ? "chatHistory-en" : "chatHistory-cz";
+    const getChatHistoryKey = (lang) => {
+        if (lang === "english") return "chatHistory-en";
+        if (lang === "spanish") return "chatHistory-es";
+        return "chatHistory-cz";
+    };
 
-    const getCurrentChatKey = (lang) =>
-        lang === "english" ? "currentChat-en" : "currentChat-cz";
+    const getCurrentChatKey = (lang) => {
+        if (lang === "english") return "currentChat-en";
+        if (lang === "spanish") return "currentChat-es";
+        return "currentChat-cz";
+    };
 
     const [sessionTasks, setSessionTasks] = useState(() => {
         const stored = localStorage.getItem('sessionTasks');
@@ -158,6 +164,125 @@ export function ContentProvider({ children }) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setStudyMaterial(
             () => {
+                if (currentLanguage === "spanish") {
+                    return [
+                        {
+                            topic: "Presentarte",
+                            emoji: "👋",
+                            keyPhrases: `**¡Hola!**
+                [OH-la]
+                Oi!
+
+                **Buenos días**
+                [BWEH-nos DEE-as]
+                Bom dia
+
+                **Me llamo Juan.**
+                [meh YA-mo hwan]
+                Meu nome é Juan.
+
+                **Soy estudiante.**
+                [soy es-tood-YAHN-teh]
+                Sou estudante.
+
+                **Tengo 25 años.**
+                Tenho 25 anos.
+
+                **Soy de Brasil.**
+                Sou do Brasil.`,
+                            pattern: `**Me llamo** = usado APENAS para dizer seu nome.
+
+                **Soy** = usado para profissão, nacionalidade e origem.
+
+                Exemplos:
+                - Me llamo Ana.
+                - Soy profesora.
+                - Soy brasileña.`,
+                            practice: `1. Diga seu nome em espanhol.
+                2. Diga sua profissão.
+                3. Diga sua idade.
+                4. Diga de onde você é.
+                5. Combine tudo em uma apresentação.`,
+                            quickReview: `Qual verbo usa para dizer seu nome em espanhol?`
+                        },
+                        {
+                            topic: "Ser vs Estar",
+                            emoji: "⚖️",
+                            keyPhrases: `**Soy** (ser) — identidade permanente
+                **Estoy** (estar) — estado temporário
+
+                Soy médico. (profissão)
+                Estoy cansado. (estado físico)
+                Soy de México. (origem)
+                Estoy en casa. (localização)`,
+                            pattern: `**SER** → identidade, profissão, origem, características permanentes.
+                **ESTAR** → estados temporários, emoções, localização.
+
+                Cuidado: "Soy feliz" (geralmente feliz) vs "Estoy feliz" (agora feliz)`,
+                            practice: `Complete com ser ou estar:
+                1. Yo ___ estudiante.
+                2. Ella ___ cansada.
+                3. Nosotros ___ en Madrid.
+                4. Él ___ médico.
+                5. ¿Cómo ___ tú?`,
+                            quickReview: `Qual a diferença entre "Soy enfermo" e "Estoy enfermo"?`
+                        },
+                        {
+                            topic: "Frases Essenciais",
+                            emoji: "🆘",
+                            keyPhrases: `Por favor
+                Gracias
+                De nada
+                Perdón / Disculpe
+                Sí / No / Quizás
+                No entiendo
+                ¿Puede repetir?
+                ¿Cuánto cuesta?
+                ¿Dónde está el baño?
+                ¿Habla portugués?
+                Mucho gusto
+                Hasta luego`,
+                            pattern: `Estrutura de perguntas básicas:
+                - ¿Dónde? → Onde?
+                - ¿Cómo? → Como?
+                - ¿Qué? → O quê?
+                - ¿Cuánto? → Quanto?
+                - ¿Por qué? → Por quê?`,
+                            practice: `Traduza para espanhol:
+                1. Com licença, onde fica o banheiro?
+                2. Quanto custa?
+                3. Não entendo.
+                4. Pode repetir, por favor?`,
+                            quickReview: `Como se diz "Muito prazer" em espanhol?`
+                        },
+                        {
+                            topic: "Números",
+                            emoji: "🔢",
+                            keyPhrases: `0 cero
+                1 uno
+                2 dos
+                3 tres
+                4 cuatro
+                5 cinco
+                10 diez
+                20 veinte
+                30 treinta
+                100 cien / ciento`,
+                            pattern: `De 16 a 19: formas contraídas
+                16 → dieciséis (não "diez y seis")
+                21 → veintiuno (não "veinte y uno")
+
+                De 31 em diante: separado com "y"
+                31 → treinta y uno`,
+                            practice: `Diga em espanhol:
+                1. Sua idade
+                2. Seu número de telefone
+                3. Preços: 15, 47, 83`,
+                            quickReview: `Como se diz 21 em espanhol?`
+                        },
+                    ];
+                }
+
                 if (currentLanguage === "english") {
                     return [
                         {

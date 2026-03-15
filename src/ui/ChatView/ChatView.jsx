@@ -47,11 +47,19 @@ export const ChatView = () => {
     /* ── system prompt ── */
     const getSystemPrompt = () => {
         const scenario = currentChat?.scenario?.prompt || "";
-        return `You are Catharina, a highly advanced ${currentLanguage} language mentor.
+
+        const tutorLang = {
+            czech:   { name: 'Czech',   respond: 'Brazilian Portuguese', target: 'Czech' },
+            english: { name: 'English', respond: 'English',              target: 'English' },
+            spanish: { name: 'Spanish', respond: 'Brazilian Portuguese', target: 'Spanish' },
+        };
+        const lang = tutorLang[currentLanguage] ?? tutorLang.english;
+
+        return `You are Catharina, a highly advanced ${lang.name} language mentor.
 STUDENT: ${userProfile.name} | Level: ${userProfile.level}
-RULES: Respond ONLY in English. Sound natural and human. Do NOT write essays. Ask ONE meaningful question per turn. Correct mistakes briefly. Prioritize dialogue.
+RULES: Respond ONLY in ${lang.respond}. Sound natural and human. Do NOT write essays. Ask ONE meaningful question per turn. Correct mistakes briefly. Prioritize dialogue.
 STYLE: Intelligent but conversational. Supportive and direct. No artificial formality.
-SCENARIO: ${scenario}${scenario ? `\n- Answer in ${currentLanguage} when there is a scenario.` : ""}
+SCENARIO: ${scenario}${scenario ? `\n- Use ${lang.target} in the scenario dialogue. Keep explanations in ${lang.respond}.` : ""}
 METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a single follow-up.`;
     };
 

@@ -73,7 +73,14 @@ export const LessonModeView = () => {
     const [stats, setStats]                       = useState({ good: 0, partial: 0, missed: 0 });
 
     const navigate = useNavigate();
-    const { sessionTasks } = useContent();
+    const { sessionTasks, currentLanguage } = useContent();
+
+    const i18n = {
+        czech:   { congrats: 'Vynikající!', subtitle: (n) => `Splnil jsi všechny ${n} aktivity na dnešek.` },
+        english: { congrats: 'Outstanding!', subtitle: (n) => `You crushed all ${n} activities today.` },
+        spanish: { congrats: '¡Excelente!',  subtitle: (n) => `Completaste las ${n} actividades de hoy.` },
+    };
+    const t = i18n[currentLanguage] ?? i18n.english;
 
     const task       = sessionTasks[currentTaskIndex];
     const totalTasks = sessionTasks.length;
@@ -132,9 +139,9 @@ export const LessonModeView = () => {
                     <div className="bg-gradient-to-br from-green-50 to-emerald-100 p-12 rounded-[3rem] mb-8 shadow-xl border border-green-100">
                         <Trophy className="w-20 h-20 text-green-500 mx-auto animate-bounce" />
                     </div>
-                    <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tighter">Vynikající!</h2>
+                    <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tighter">{t.congrats}</h2>
                     <p className="text-slate-500 font-bold mb-8">
-                        You crushed all {totalTasks} activities today.
+                        {t.subtitle(totalTasks)}
                     </p>
 
                     {totalRated > 0 && (
