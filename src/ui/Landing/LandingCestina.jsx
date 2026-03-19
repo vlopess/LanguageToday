@@ -17,6 +17,8 @@ import {
     HardDrive, Smartphone, Mic
 } from "lucide-react";
 import Logo from "../../assets/logo.png";
+import LogoEnglish from "../../assets/logo_en.png";
+import LogoSpanish from "../../assets/logo_espanhol.png";
 import Catharine from "../../assets/catharine.png";
 import React from "react";
 import "./Landing.css";
@@ -44,6 +46,17 @@ export const LandingCestina = () => {
                         <a href="#metodo" className="hover:text-[#11457E]">Method</a>
                         <a href="#academic" className="hover:text-[#11457E]">Curriculum</a>
                         <a href="#tutor" className="hover:text-[#11457E]">Tutor</a>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Link to="/" className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border-2 border-[#E5E0D8] hover:border-[#11457E] transition-colors bg-white">
+                            <img src={LogoEnglish} alt="English" width={22}/>
+                            <span className="text-[11px] font-black text-slate-600">English</span>
+                        </Link>
+                        <Link to="/spanish" className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border-2 border-[#E5E0D8] hover:border-[#F5A623] transition-colors bg-white">
+                            <img src={LogoSpanish} alt="Spanish" width={22}/>
+                            <span className="text-[11px] font-black text-slate-600">Spanish</span>
+                        </Link>
                     </div>
                 </div>
             </nav>

@@ -135,29 +135,37 @@ export function ContentProvider({ children }) {
     }, [currentChat]);
 
 
+    // Fires only on login to trigger session generation
     useEffect(() => {
         if (!userId) return;
-
-        // Only force new session generation on actual login, not on page reload
         if (sessionStorage.getItem('freshLogin') === 'true') {
             sessionStorage.removeItem('freshLogin');
             setNeedsSessionGeneration(true);
         }
+    }, [userId]);
 
-        // Load saved stories from DB
+    // Reload DB data whenever user or language changes
+    useEffect(() => {
+        if (!userId) return;
+        let cancelled = false;
+
+        // Load saved stories from DB (language-scoped)
         getSavedStories(userId, currentLanguage).then(stories => {
-            if (stories.length > 0) setSavedStories(stories);
+            if (cancelled) return;
+            setSavedStories(stories);
         });
 
-        // Load chat history from DB
+        // Load chat history from DB (language-scoped)
         getChatSessions(userId, currentLanguage).then(chats => {
+            if (cancelled) return;
             if (chats.length > 0) {
                 setChatHistory(chats);
                 setCurrentChat(chats[0]);
             }
         });
 
-    }, [userId]); // Only fire on login (userId change)
+        return () => { cancelled = true; };
+    }, [userId, currentLanguage]);
 
     useEffect(() => {
         localStorage.setItem('currentLanguage', JSON.stringify(currentLanguage));

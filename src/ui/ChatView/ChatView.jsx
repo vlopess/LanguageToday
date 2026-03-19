@@ -21,6 +21,16 @@ export const ChatView = () => {
     const [isTyping,       setIsTyping]       = useState(false);
     const [selectedScenario, setSelectedScenario] = useState(false);
     const initialMessageSentRef = useRef(false);
+    // Tracks which "chatId::scenarioId" pairs already had their initial message sent,
+    // preventing double-sends from StrictMode effect re-runs or currentChat.id changes on DB load.
+    const sentInitialRef = useRef(new Set());
+    // Always-current ref for currentChat so async callbacks don't use stale closures.
+    const currentChatRef = useRef(currentChat);
+
+    /* ── keep currentChatRef in sync ── */
+    useEffect(() => {
+        currentChatRef.current = currentChat;
+    }, [currentChat]);
 
     /* ── init ── */
     useEffect(() => {
@@ -119,7 +129,9 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
     const addMessageToChat = async (message) => {
         const now = Date.now();
         const msg = { ...message, createdAt: now };
-        const chat = chatHistory.find(c => c.id === currentChat.id) || currentChat;
+        // Use ref so this always targets the current chat even after awaits.
+        const chat = chatHistory.find(c => c.id === currentChatRef.current?.id) || currentChatRef.current;
+        if (!chat) return;
 
         const sid = await ensureSupabaseSession(chat);
         if (sid) {
@@ -127,12 +139,14 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
             updateChatSessionTimestamp(sid);
         }
 
+        const targetId = currentChatRef.current?.id;
         setChatHistory(prev => {
-            const updated = prev.map(c =>
-                c.id === currentChat.id
-                    ? { ...c, messages: [...c.messages, msg], lastMessageAt: now }
-                    : c
-            );
+            const updated = prev.map(c => {
+                if (c.id !== targetId) return c;
+                // Guard against double-add (e.g. StrictMode)
+                if (c.messages.some(m => m.createdAt === msg.createdAt && m.role === msg.role)) return c;
+                return { ...c, messages: [...c.messages, msg], lastMessageAt: now };
+            });
             return [...updated].sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
         });
     };
@@ -180,9 +194,12 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
     }, [selectedScenario]);
 
     useEffect(() => {
-        if (!currentChat) return;
-        if (currentChat.scenario && currentMessages().length === 0)
-            sendInitialScenarioMessage(currentChat);
+        if (!currentChat?.scenario) return;
+        if (currentMessages().length > 0) return;
+        const key = `${currentChat.id}::${currentChat.scenario.id}`;
+        if (sentInitialRef.current.has(key)) return;
+        sentInitialRef.current.add(key);
+        sendInitialScenarioMessage(currentChat);
     }, [currentChat?.id, currentChat?.scenario?.id]);
 
     /* ── send ── */
@@ -241,14 +258,15 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
             {/* ── HISTORY DRAWER ── */}
             <div className={`absolute inset-y-0 left-0 w-72 z-50 flex flex-col
                              transform transition-transform duration-300
-                             ${isHistoryOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                             ${isHistoryOpen ? 'translate-x-0' : '-translate-x-full'}
+                             lg:translate-x-0`}
                 style={{ background: '#0D1B2A', boxShadow: '8px 0 32px rgba(0,0,0,0.3)' }}>
                 <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
                     <span className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2" style={display}>
                         <History className="w-4 h-4" style={{ color: '#D71920' }} />
                         History
                     </span>
-                    <button onClick={() => setIsHistoryOpen(false)} className="text-white/30 hover:text-white transition-colors">
+                    <button onClick={() => setIsHistoryOpen(false)} className="text-white/30 hover:text-white transition-colors lg:hidden">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -297,16 +315,19 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
 
             {/* overlay */}
             {isHistoryOpen && (
-                <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-sm"
+                <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
                     onClick={() => setIsHistoryOpen(false)} />
             )}
+
+            {/* ── MAIN CONTENT (offset by sidebar on lg) ── */}
+            <div className="flex flex-col flex-1 min-h-0 lg:ml-72">
 
             {/* ── HEADER ── */}
             <header className="flex items-center justify-between px-4 py-3 border-b border-[#E5E0D8] flex-shrink-0"
                 style={{ background: 'rgba(247,245,240,0.95)', backdropFilter: 'blur(12px)' }}>
                 <div className="flex items-center gap-3">
                     <button onClick={() => setIsHistoryOpen(true)}
-                        className="w-9 h-9 rounded-2xl flex items-center justify-center transition-colors hover:bg-slate-100"
+                        className="w-9 h-9 rounded-2xl flex items-center justify-center transition-colors hover:bg-slate-100 lg:hidden"
                         style={{ background: 'rgba(17,69,126,0.06)' }}>
                         <History className="w-4 h-4" style={{ color: '#11457E' }} />
                     </button>
@@ -329,7 +350,7 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
 
             {/* ── MESSAGES ── */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ paddingBottom: '152px' }}>
-                <div className="max-w-2xl mx-auto px-4 pt-5 space-y-3">
+                <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 pt-5 space-y-3">
 
                     {/* empty state */}
                     {msgs.length === 0 && !isTyping && (
@@ -394,9 +415,9 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
             </div>
 
             {/* ── FLOATING INPUT ── */}
-            <div className="fixed left-0 right-0 z-20 flex justify-center px-4 pointer-events-none"
+            <div className="fixed left-0 lg:left-72 right-0 z-20 flex justify-center px-4 pointer-events-none"
                 style={{ bottom: '82px' }}>
-                <div className="pointer-events-auto w-full max-w-2xl">
+                <div className="pointer-events-auto w-full max-w-2xl lg:max-w-3xl">
                     <div className="flex items-end gap-2 rounded-[1.5rem] px-4 py-3"
                         style={{
                             background: 'rgba(255,255,255,0.92)',
@@ -430,6 +451,7 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
             </div>
 
             <BottomNavBar />
+            </div>{/* end lg:ml-72 wrapper */}
         </div>
     );
 };
