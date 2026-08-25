@@ -13,7 +13,7 @@ export const ProtectRoute = ({ children }) => {
     );
 
     if (!userId) return <Navigate to="/auth" replace />;
-    if (needsSessionGeneration) return <Navigate to="/language-select" replace />;
+    if (needsSessionGeneration) return <Navigate to="/sessions" replace />;
 
     return children;
 };

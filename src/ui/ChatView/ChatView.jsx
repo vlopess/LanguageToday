@@ -7,13 +7,10 @@ import { useAuth } from "../../contexts/AuthContext.jsx";
 import { createChatSession, addChatMessage, updateChatSessionTimestamp, deleteChatSession } from "../../lib/db.js";
 import { BottomNavBar } from "../BottomNavBar/BottomNavBar.jsx";
 
-const display = { fontFamily: "'Bricolage Grotesque', sans-serif" };
-const body    = { fontFamily: "'DM Sans', sans-serif" };
-
 export const ChatView = () => {
     const scrollRef  = useRef(null);
     const textareaRef = useRef(null);
-    const { userProfile, chatHistory, setChatHistory, currentChat, currentLanguage, setCurrentChat } = useContent();
+    const { userProfile, chatHistory, setChatHistory, currentChat, currentLanguage, setCurrentChat, languageMeta } = useContent();
     const { userId } = useAuth();
 
     const [isHistoryOpen,  setIsHistoryOpen]  = useState(false);
@@ -58,18 +55,21 @@ export const ChatView = () => {
     const getSystemPrompt = () => {
         const scenario = currentChat?.scenario?.prompt || "";
 
-        const tutorLang = {
-            czech:   { name: 'Czech',   respond: 'Brazilian Portuguese', target: 'Czech' },
-            english: { name: 'English', respond: 'English',              target: 'English' },
-            spanish: { name: 'Spanish', respond: 'Brazilian Portuguese', target: 'Spanish' },
+        // Fully generic: target language from the catalog,
+        // responses in the profile's instruction language.
+        const supportRespond = {
+            portuguese: 'Brazilian Portuguese',
+            english: 'English',
+            spanish: 'Spanish',
         };
-        const lang = tutorLang[currentLanguage] ?? tutorLang.english;
+        const respondLang = supportRespond[userProfile?.supportLanguage] || 'Brazilian Portuguese';
+        const targetName  = languageMeta?.name || languageMeta?.nativeName || 'the target language';
 
-        return `You are Catharina, a highly advanced ${lang.name} language mentor.
+        return `You are Catharina, a highly advanced ${targetName} language mentor.
 STUDENT: ${userProfile.name} | Level: ${userProfile.level}
-RULES: Respond ONLY in ${lang.respond}. Sound natural and human. Do NOT write essays. Ask ONE meaningful question per turn. Correct mistakes briefly. Prioritize dialogue.
+RULES: Respond ONLY in ${respondLang}. Sound natural and human. Do NOT write essays. Ask ONE meaningful question per turn. Correct mistakes briefly. Prioritize dialogue.
 STYLE: Intelligent but conversational. Supportive and direct. No artificial formality.
-SCENARIO: ${scenario}${scenario ? `\n- Use ${lang.target} in the scenario dialogue. Keep explanations in ${lang.respond}.` : ""}
+SCENARIO: ${scenario}${scenario ? `\n- Use ${targetName} in the scenario dialogue. Keep explanations in ${respondLang}.` : ""}
 METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a single follow-up.`;
     };
 
@@ -84,14 +84,14 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
             if (rows.length < 3) return block;
             const header = rows[0].split("|").slice(1, -1).map(c => inlineMd(c.trim()));
             const body   = rows.slice(2).map(r => r.split("|").slice(1, -1).map(c => inlineMd(c.trim())));
-            tables.push(`<div class="overflow-x-auto my-2"><table class="min-w-full border rounded-xl text-xs">
-<thead><tr>${header.map(h => `<th class="px-3 py-2 bg-slate-100 font-bold border-b text-left">${h}</th>`).join("")}</tr></thead>
-<tbody>${body.map(r => `<tr>${r.map(c => `<td class="px-3 py-2 border-b">${c}</td>`).join("")}</tr>`).join("")}</tbody>
+            tables.push(`<div class="overflow-x-auto my-2"><table class="min-w-full border border-line rounded-lg text-xs overflow-hidden">
+<thead><tr>${header.map(h => `<th class="px-3 py-2 bg-sunken font-semibold border-b border-line text-left">${h}</th>`).join("")}</tr></thead>
+<tbody>${body.map(r => `<tr>${r.map(c => `<td class="px-3 py-2 border-b border-line">${c}</td>`).join("")}</tr>`).join("")}</tbody>
 </table></div>`);
             return `__T${idx++}__`;
         });
-        safe = safe.replace(/^### (.*$)/gm, '<p class="font-black text-[#11457E] mt-3 mb-1 text-sm">$1</p>');
-        safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-[#11457E]">$1</strong>');
+        safe = safe.replace(/^### (.*$)/gm, '<p class="font-semibold mt-3 mb-1 text-sm">$1</p>');
+        safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>');
         safe = safe.replace(/\*(.*?)\*/g, "<em>$1</em>");
         safe = safe.replace(/\n/g, "<br/>");
         tables.forEach((t, i) => { safe = safe.replace(`__T${i}__`, t); });
@@ -99,7 +99,7 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
     };
 
     const inlineMd = (t) => t
-        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
         .replace(/\*(.*?)\*/g, "<em>$1</em>");
 
     /* ── chat helpers ── */
@@ -253,33 +253,33 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
 
     /* ── UI ── */
     return (
-        <div className="h-screen flex flex-col" style={{ background: '#F7F5F0', ...body }}>
+        <div className="h-screen flex flex-col">
 
             {/* ── HISTORY DRAWER ── */}
             <div className={`absolute inset-y-0 left-0 w-72 z-50 flex flex-col
-                             transform transition-transform duration-300
+                             transform transition-transform duration-300 bg-ink
                              ${isHistoryOpen ? 'translate-x-0' : '-translate-x-full'}
-                             lg:translate-x-0`}
-                style={{ background: '#0D1B2A', boxShadow: '8px 0 32px rgba(0,0,0,0.3)' }}>
-                <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
-                    <span className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2" style={display}>
-                        <History className="w-4 h-4" style={{ color: '#D71920' }} />
-                        History
+                             lg:translate-x-0`}>
+                <div className="flex items-center justify-between px-5 h-14 border-b border-white/10">
+                    <span className="text-paper/80 text-[13px] font-medium flex items-center gap-2">
+                        <History size={15}/>
+                        Conversations
                     </span>
-                    <button onClick={() => setIsHistoryOpen(false)} className="text-white/30 hover:text-white transition-colors lg:hidden">
-                        <X className="w-5 h-5" />
+                    <button onClick={() => setIsHistoryOpen(false)} aria-label="Close"
+                            className="text-paper/40 hover:text-paper transition-colors lg:hidden focus-ring">
+                        <X size={17}/>
                     </button>
                 </div>
 
                 <div className="px-4 py-4">
                     <button onClick={() => { createNewChat(); setIsHistoryOpen(false); }}
-                        className="w-full py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
-                        style={{ background: '#11457E', color: '#fff' }}>
-                        <PlusCircle className="w-4 h-4" /> New Session
+                        className="w-full py-2.5 rounded-lg font-medium text-[13px] flex items-center justify-center gap-2 transition-colors focus-ring
+                                   bg-paper text-ink hover:bg-white">
+                        <PlusCircle size={15}/> New conversation
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-4 space-y-2 pb-6">
+                <div className="flex-1 overflow-y-auto px-3 pb-6">
                     {chatHistory.map(chat => {
                         const lastMsg = chat.messages[chat.messages.length - 1];
                         const isActive = chat.id === currentChat?.id;
@@ -287,25 +287,24 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
                             <div key={chat.id} className="group relative">
                                 <button
                                     onClick={() => { setCurrentChat(chat); setIsHistoryOpen(false); }}
-                                    className="w-full p-3.5 rounded-2xl text-left transition-all pr-10"
-                                    style={{
-                                        background: isActive ? 'rgba(17,69,126,0.4)' : 'rgba(255,255,255,0.05)',
-                                        border: `1px solid ${isActive ? 'rgba(17,69,126,0.6)' : 'rgba(255,255,255,0.05)'}`,
-                                    }}>
-                                    <span className="text-white/40 text-[9px] font-bold uppercase tracking-widest block mb-1">
+                                    className={`w-full p-3 rounded-lg text-left transition-colors pr-9 focus-ring ${
+                                        isActive ? 'bg-white/10' : 'hover:bg-white/5'
+                                    }`}
+                                    style={isActive ? { boxShadow: 'inset 2px 0 0 #7EA4D4' } : undefined}>
+                                    <span className="text-paper/40 text-[11px] block mb-0.5 truncate">
                                         {chat.date}
                                         {chat.scenario && ` · ${chat.scenario.title}`}
                                     </span>
-                                    <span className="text-white/70 text-xs font-medium truncate block">
-                                        {lastMsg ? lastMsg.text.substring(0, 40) + '…' : 'New conversation'}
-                                    </span>
+                                    <span className="text-paper/75 text-xs truncate block">
+                                        {lastMsg ? lastMsg.text.substring(0, 40) + '…' : 'New conversation'}                                    </span>
                                 </button>
                                 <button
                                     onClick={(e) => handleDeleteChat(chat, e)}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-xl
+                                    aria-label="Delete conversation"
+                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-md
                                                opacity-0 group-hover:opacity-100 transition-opacity
-                                               text-white/30 hover:text-red-400 hover:bg-white/10">
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                               text-paper/30 hover:text-danger hover:bg-white/10 focus-ring">
+                                    <Trash2 size={14}/>
                                 </button>
                             </div>
                         );
@@ -315,7 +314,7 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
 
             {/* overlay */}
             {isHistoryOpen && (
-                <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+                <div className="absolute inset-0 z-40 bg-ink/45 lg:hidden"
                     onClick={() => setIsHistoryOpen(false)} />
             )}
 
@@ -323,21 +322,18 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
             <div className="flex flex-col flex-1 min-h-0 lg:ml-72">
 
             {/* ── HEADER ── */}
-            <header className="flex items-center justify-between px-4 py-3 border-b border-[#E5E0D8] flex-shrink-0"
-                style={{ background: 'rgba(247,245,240,0.95)', backdropFilter: 'blur(12px)' }}>
+            <header className="flex items-center justify-between px-4 h-14 border-b border-line bg-surface flex-shrink-0">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => setIsHistoryOpen(true)}
-                        className="w-9 h-9 rounded-2xl flex items-center justify-center transition-colors hover:bg-slate-100 lg:hidden"
-                        style={{ background: 'rgba(17,69,126,0.06)' }}>
-                        <History className="w-4 h-4" style={{ color: '#11457E' }} />
+                    <button onClick={() => setIsHistoryOpen(true)} aria-label="History"
+                        className="w-8 h-8 -ml-1.5 rounded-lg flex items-center justify-center text-muted hover:text-ink hover:bg-sunken transition-colors lg:hidden focus-ring">
+                        <History size={16}/>
                     </button>
                     <div className="flex items-center gap-2.5">
-                        <img src={Catharina} alt="Catharina" className="w-9 h-9 object-contain object-bottom rounded-full"
-                            style={{ background: 'linear-gradient(135deg, #11457E22, #071e3d22)' }} />
+                        <img src={Catharina} alt="" aria-hidden className="w-8 h-8 object-contain object-bottom"/>
                         <div>
-                            <p className="font-bold text-slate-800 text-sm leading-none" style={display}>Catharina</p>
-                            <p className="text-[10px] font-medium mt-0.5" style={{ color: '#11457E' }}>
-                                {currentChat?.scenario ? currentChat.scenario.title : `${userProfile.level} · AI Tutor`}
+                            <p className="font-semibold text-sm leading-none">Catharina</p>
+                            <p className="text-[12px] text-muted mt-0.5">
+                                {currentChat?.scenario ? currentChat.scenario.title : `${userProfile.level} · conversation tutor`}
                             </p>
                         </div>
                     </div>
@@ -349,18 +345,18 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
             </header>
 
             {/* ── MESSAGES ── */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ paddingBottom: '152px' }}>
-                <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 pt-5 space-y-3">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ paddingBottom: '148px' }}>
+                <div className="max-w-2xl mx-auto px-4 pt-5 space-y-3">
 
                     {/* empty state */}
                     {msgs.length === 0 && !isTyping && (
                         <div className="flex flex-col items-center justify-center py-20 text-center">
-                            <img src={Catharina} alt="Catharina" className="w-28 h-28 object-contain mb-4 opacity-70" />
-                            <p className="font-bold text-slate-600 text-base mb-1" style={display}>
+                            <img src={Catharina} alt="" aria-hidden className="w-24 h-24 object-contain mb-4 opacity-80 mix-blend-multiply"/>
+                            <p className="font-medium text-base mb-1">
                                 Start a conversation
                             </p>
-                            <p className="text-slate-400 text-sm font-medium">
-                                Type a message or choose a scenario to begin
+                            <p className="text-muted text-sm">
+                                Write a message or pick a scenario
                             </p>
                         </div>
                     )}
@@ -370,25 +366,17 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
 
                             {/* assistant avatar */}
                             {msg.role === 'assistant' && (
-                                <img src={Catharina} alt="" className="w-7 h-7 rounded-full object-contain object-bottom flex-shrink-0 mb-0.5"
-                                    style={{ background: 'linear-gradient(135deg, #EFF4FB, #dbeafe)' }} />
+                                <img src={Catharina} alt="" aria-hidden className="w-6 h-6 object-contain object-bottom flex-shrink-0"/>
                             )}
 
-                            <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed max-w-[78%] ${
+                            <div className={`px-4 py-2.5 rounded-lg text-sm leading-relaxed max-w-[78%] ${
                                 msg.role === 'user'
-                                    ? 'rounded-br-md text-white'
-                                    : 'rounded-bl-md text-slate-800'
-                            } ${msg.isInitial ? '' : ''}`}
-                                style={{
-                                    background: msg.role === 'user'
-                                        ? '#11457E'
-                                        : 'white',
-                                    border: msg.role === 'assistant' ? '1px solid #E5E0D8' : 'none',
-                                    boxShadow: msg.role === 'assistant' ? '0 2px 8px rgba(0,0,0,0.04)' : '0 2px 8px rgba(17,69,126,0.2)',
-                                }}>
+                                    ? 'bg-primary text-white rounded-br-sm'
+                                    : 'bg-surface border border-line text-ink rounded-bl-sm'
+                            }`}>
                                 {msg.isInitial && (
-                                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5 opacity-60">
-                                        Lesson start
+                                    <p className="text-[11px] font-medium opacity-60 mb-1">
+                                        Scene start
                                     </p>
                                 )}
                                 {renderMarkdown(msg.text)}
@@ -399,14 +387,11 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
                     {/* typing indicator */}
                     {isTyping && (
                         <div className="flex items-end gap-2 justify-start">
-                            <img src={Catharina} alt="" className="w-7 h-7 rounded-full object-contain object-bottom flex-shrink-0"
-                                style={{ background: 'linear-gradient(135deg, #EFF4FB, #dbeafe)' }} />
-                            <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-[#E5E0D8]
-                                            flex items-center gap-1.5"
-                                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                            <img src={Catharina} alt="" aria-hidden className="w-6 h-6 object-contain object-bottom flex-shrink-0"/>
+                            <div className="px-4 py-3 rounded-lg rounded-bl-sm bg-surface border border-line flex items-center gap-1.5">
                                 {[0, 1, 2].map(i => (
-                                    <span key={i} className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce"
-                                        style={{ animationDelay: `${i * 0.15}s` }} />
+                                    <span key={i} className="w-1.5 h-1.5 rounded-full bg-muted/40 animate-pulse"
+                                        style={{ animationDelay: `${i * 0.2}s` }} />
                                 ))}
                             </div>
                         </div>
@@ -416,35 +401,27 @@ METHOD: Begin naturally. Keep tone realistic. Encourage elaboration with a singl
 
             {/* ── FLOATING INPUT ── */}
             <div className="fixed left-0 lg:left-72 right-0 z-20 flex justify-center px-4 pointer-events-none"
-                style={{ bottom: '82px' }}>
-                <div className="pointer-events-auto w-full max-w-2xl lg:max-w-3xl">
-                    <div className="flex items-end gap-2 rounded-[1.5rem] px-4 py-3"
-                        style={{
-                            background: 'rgba(255,255,255,0.92)',
-                            backdropFilter: 'blur(20px)',
-                            WebkitBackdropFilter: 'blur(20px)',
-                            border: '1.5px solid #E5E0D8',
-                            boxShadow: '0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)',
-                        }}>
+                style={{ bottom: '76px' }}>
+                <div className="pointer-events-auto w-full max-w-2xl">
+                    <div className="flex items-end gap-2 rounded-xl px-4 py-2.5 bg-surface border border-line shadow-overlay">
                         <textarea
                             ref={textareaRef}
                             rows={1}
                             value={userInput}
                             onChange={e => setUserInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                            placeholder="Message Catharina…"
+                            placeholder="Write to Catharina…"
                             disabled={isTyping}
-                            className="flex-1 bg-transparent resize-none outline-none text-sm text-slate-800 placeholder:text-slate-400 leading-relaxed"
-                            style={{ ...body, maxHeight: '120px', minHeight: '20px' }}
+                            className="flex-1 bg-transparent resize-none outline-none text-sm leading-relaxed placeholder:text-muted/60"
+                            style={{ maxHeight: '120px', minHeight: '20px' }}
                         />
                         <button onClick={handleSendMessage}
                             disabled={!userInput.trim() || isTyping}
-                            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
-                            style={{
-                                background: userInput.trim() && !isTyping ? '#11457E' : '#E5E0D8',
-                                transform: userInput.trim() && !isTyping ? 'scale(1)' : 'scale(0.95)',
-                            }}>
-                            <Send className="w-4 h-4" style={{ color: userInput.trim() && !isTyping ? 'white' : '#94a3b8' }} />
+                            aria-label="Send"
+                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors focus-ring
+                                       bg-primary text-white hover:bg-primary-dark
+                                       disabled:bg-sunken disabled:text-muted/50">
+                            <Send size={15}/>
                         </button>
                     </div>
                 </div>

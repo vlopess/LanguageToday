@@ -5,25 +5,42 @@ export default {
   ],
   theme: {
     extend: {
+      colors: {
+        paper: '#F7F5F0',
+        surface: '#FFFFFF',
+        sunken: '#EFECE5',
+        line: '#E3DED4',
+        ink: '#1B2733',
+        muted: '#68737D',
+        primary: {
+          DEFAULT: '#11457E',
+          dark: '#0D3560',
+          soft: '#EBF1F8',
+        },
+        success: { DEFAULT: '#1B7A43', soft: '#EAF4EE' },
+        warning: { DEFAULT: '#9A6700', soft: '#FBF3E4' },
+        danger: { DEFAULT: '#C0342C', soft: '#FAEDEB' },
+      },
+      fontFamily: {
+        sans: ['"DM Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['"Bricolage Grotesque"', '"DM Sans"', 'sans-serif'],
+        serif: ['Georgia', '"Times New Roman"', 'serif'],
+      },
+      boxShadow: {
+        overlay: '0 12px 32px rgba(27, 39, 51, 0.14)',
+      },
       keyframes: {
         shake: {
           '0%, 100%': { transform: 'translateX(0)' },
-          '20%': { transform: 'translateX(-8px)' },
-          '40%': { transform: 'translateX(8px)' },
-          '60%': { transform: 'translateX(-5px)' },
-          '80%': { transform: 'translateX(5px)' },
-        },
-        'pop-in': {
-          '0%': { transform: 'scale(0.85)', opacity: '0' },
-          '100%': { transform: 'scale(1)', opacity: '1' },
+          '25%': { transform: 'translateX(-4px)' },
+          '50%': { transform: 'translateX(4px)' },
+          '75%': { transform: 'translateX(-2px)' },
         },
       },
       animation: {
-        shake: 'shake 0.4s ease-in-out',
-        'pop-in': 'pop-in 0.2s ease-out',
+        shake: 'shake 0.3s ease-in-out',
       },
     },
   },
   plugins: [],
 }
-

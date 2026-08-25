@@ -6,56 +6,29 @@ export const BottomNavBar = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const items = [
-        { label: "Home", icon: Home,         path: "/dashboard" },
-        { label: "Chat", icon: MessageSquare, path: "/chat"      },
-    ];
+    const itemClass = (active) =>
+        `flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors focus-ring ${
+            active ? "text-primary" : "text-muted hover:text-ink"
+        }`;
 
     return (
-        <nav
-            style={{
-                position: 'fixed',
-                bottom: '20px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 50,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 12px',
-                borderRadius: '9999px',
-                backgroundColor: '#11457E',
-                boxShadow: '0 8px 32px rgba(17,69,126,0.45)',
-                fontFamily: "'DM Sans', sans-serif",
-                whiteSpace: 'nowrap',
-            }}>
-            {items.map(({ label, icon: Icon, path }) => {
-                const active = location.pathname === path;
-                return (
-                    <button
-                        key={path}
-                        onClick={() => navigate(path)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '8px 16px',
-                            borderRadius: '9999px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'transparent',
-                            color: active ? '#ffffff' : 'rgba(255,255,255,0.5)',
-                            transition: 'all 0.2s',
-                        }}>
-                        <Icon size={16} strokeWidth={active ? 2.5 : 2} />
-                        {active && (
-                            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em' }}>
-                                {label}
-                            </span>
-                        )}
-                    </button>
-                );
-            })}
+        <nav className="fixed bottom-0 inset-x-0 z-50 bg-surface border-t border-line">
+            <div className="max-w-2xl mx-auto flex">
+                <button
+                    onClick={() => navigate("/dashboard")}
+                    className={itemClass(location.pathname === "/dashboard")}
+                >
+                    <Home size={18} strokeWidth={location.pathname === "/dashboard" ? 2.2 : 1.8} />
+                    Home
+                </button>
+                <button
+                    onClick={() => navigate("/chat")}
+                    className={itemClass(location.pathname === "/chat")}
+                >
+                    <MessageSquare size={18} strokeWidth={location.pathname === "/chat" ? 2.2 : 1.8} />
+                    Chat
+                </button>
+            </div>
         </nav>
     );
 };

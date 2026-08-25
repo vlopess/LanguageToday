@@ -10,9 +10,6 @@ export async function getSavedStories(userId, language) {
         .eq('user_id', userId)
         .eq('language', language)
         .order('created_at', { ascending: false });
-    console.log(userId);
-    console.log(language);
-
     if (error) { console.error('[db] getSavedStories:', error.message); return []; }
     return (data || []).map(s => ({
         id: s.id,
@@ -33,7 +30,7 @@ export async function saveStory(userId, story, language) {
         icon: story.icon ?? '',
         language_text: story.languageText ?? '',
         original_text: story.originalText ?? '',
-    }, { onConflict: 'user_id,title' });
+    }, { onConflict: 'user_id,language,title' });
     if (error) console.error('[db] saveStory:', error.message);
 }
 
@@ -45,6 +42,40 @@ export async function removeSavedStory(userId, title) {
         .eq('user_id', userId)
         .eq('title', title);
     if (error) console.error('[db] removeSavedStory:', error.message);
+}
+
+// ─── Daily Stories (shared per language, cached like study_topics) ─────────────
+
+export async function getDailyStories(language) {
+    if (!language) return [];
+    const { data, error } = await supabase
+        .from('daily_stories')
+        .select('title, icon, language_text, original_text')
+        .eq('language', language)
+        .order('sort_order');
+    if (error) { console.error('[db] getDailyStories:', error.message); return []; }
+    return (data || []).map(s => ({
+        title: s.title,
+        icon: s.icon,
+        languageText: s.language_text,
+        originalText: s.original_text,
+    }));
+}
+
+export async function saveDailyStories(language, stories) {
+    if (!language || !Array.isArray(stories) || stories.length === 0) return;
+    const rows = stories.map((s, i) => ({
+        language,
+        title: s.title ?? '',
+        icon: s.icon ?? '',
+        language_text: s.languageText ?? '',
+        original_text: s.originalText ?? '',
+        sort_order: i,
+    }));
+    const { error } = await supabase
+        .from('daily_stories')
+        .upsert(rows, { onConflict: 'language,title' });
+    if (error) console.error('[db] saveDailyStories:', error.message);
 }
 
 // ─── Chat Sessions ─────────────────────────────────────────────────────────────
@@ -124,6 +155,56 @@ export async function getStudySessions(userId, language) {
         .limit(100);
     if (error) { console.error('[db] getStudySessions:', error.message); return []; }
     return data || [];
+}
+
+// ─── Study Topics (AI-generated academic path, shared per language+level) ─────
+
+export async function getStudyTopics(language, level) {
+    if (!language) return [];
+    const { data, error } = await supabase
+        .from('study_topics')
+        .select('title, emoji, key_phrases, pattern, practice, quick_review')
+        .eq('language', language)
+        .eq('level', level)
+        .order('sort_order');
+    if (error) { console.error('[db] getStudyTopics:', error.message); return []; }
+    return (data || []).map(t => ({
+        topic: t.title,
+        emoji: t.emoji,
+        keyPhrases: t.key_phrases,
+        pattern: t.pattern,
+        practice: t.practice,
+        quickReview: t.quick_review,
+    }));
+}
+
+export async function saveStudyTopics(language, level, topics) {
+    if (!language || !Array.isArray(topics) || topics.length === 0) return;
+    const rows = topics.map((t, i) => ({
+        language,
+        level,
+        title: t.topic ?? '',
+        emoji: t.emoji ?? '',
+        key_phrases: t.keyPhrases ?? '',
+        pattern: t.pattern ?? '',
+        practice: t.practice ?? '',
+        quick_review: t.quickReview ?? '',
+        sort_order: i,
+    }));
+    const { error } = await supabase
+        .from('study_topics')
+        .upsert(rows, { onConflict: 'language,level,title' });
+    if (error) console.error('[db] saveStudyTopics:', error.message);
+}
+
+export async function deleteStudyTopics(language, level) {
+    if (!language) return;
+    const { error } = await supabase
+        .from('study_topics')
+        .delete()
+        .eq('language', language)
+        .eq('level', level);
+    if (error) console.error('[db] deleteStudyTopics:', error.message);
 }
 
 // ─── Chat Sessions ─────────────────────────────────────────────────────────────

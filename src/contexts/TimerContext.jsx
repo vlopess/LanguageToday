@@ -7,40 +7,29 @@ import { recordStudySession } from '../lib/db.js';
 
 const TimerContext = createContext(null);
 
-const display = { fontFamily: "'Bricolage Grotesque', sans-serif" };
-const body    = { fontFamily: "'DM Sans', sans-serif" };
-
 function SessionCompleteDialog({ durationMinutes, onClose }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-5"
-             style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-            <div className="w-full max-w-sm rounded-[2rem] overflow-hidden"
-                 style={{ background: '#F7F5F0', ...body }}>
-                <div className="h-2" style={{ background: 'linear-gradient(90deg, #11457E, #D71920)' }}/>
-                <div className="px-7 py-8 text-center">
-                    <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
-                         style={{ background: 'linear-gradient(135deg, #11457E 0%, #071e3d 100%)' }}>
-                        <CheckCircle className="w-9 h-9 text-white" strokeWidth={2.5}/>
-                    </div>
-                    <h2 className="text-slate-900 leading-tight mb-2"
-                        style={{ ...display, fontWeight: 800, fontSize: '1.8rem' }}>
-                        Session complete!
-                    </h2>
-                    <p className="text-slate-500 text-sm mb-6">
-                        You studied for{' '}
-                        <span className="font-bold text-[#11457E]">
-                            {durationMinutes} minute{durationMinutes !== 1 ? 's' : ''}
-                        </span>.
-                        Keep the streak going!
-                    </p>
-                    <button
-                        onClick={onClose}
-                        className="w-full py-4 rounded-2xl text-white font-bold text-base
-                                   hover:brightness-110 active:scale-[0.98] transition-all"
-                        style={{ background: 'linear-gradient(135deg, #11457E 0%, #D71920 100%)', ...display }}>
-                        Continue
-                    </button>
-                </div>
+             style={{ background: 'rgba(27,39,51,0.45)' }}>
+            <div role="dialog" aria-modal="true" aria-label="Session complete"
+                 className="w-full max-w-sm bg-surface border border-line rounded-xl shadow-overlay p-7 text-center">
+                <CheckCircle size={32} strokeWidth={1.5} className="text-success mx-auto mb-4"/>
+                <h2 className="font-display font-bold tracking-tight text-2xl mb-2">
+                    Session complete!
+                </h2>
+                <p className="text-muted text-sm mb-6">
+                    You studied for{' '}
+                    <span className="font-semibold text-ink tabular-nums">
+                        {durationMinutes} minute{durationMinutes !== 1 ? 's' : ''}
+                    </span>.
+                    Keep it up tomorrow.
+                </p>
+                <button
+                    onClick={onClose}
+                    className="w-full py-3 rounded-lg bg-primary text-white text-sm font-semibold
+                               hover:bg-primary-dark transition-colors focus-ring">
+                    Continue
+                </button>
             </div>
         </div>
     );

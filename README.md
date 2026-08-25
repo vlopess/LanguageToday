@@ -1,7 +1,7 @@
 ![img](https://github.com/vlopess/LanguageToday/blob/main/src/assets/banner.png?raw=true)
 # LanguageToday
 
-**LanguageToday** is a free educational web application designed to help learners study **English and Czech** through structured lessons, practical exercises, and AI-assisted guidance.
+**LanguageToday** is a free educational web application designed to help learners study **any language** through structured lessons, practical exercises, and AI-assisted guidance.
 
 It combines academic organization with real-world usage, focusing on long-term retention and practical communication skills.
 
@@ -12,7 +12,7 @@ It combines academic organization with real-world usage, focusing on long-term r
 
 ---
 
-## 📚 About the Project
+## About the Project
 
 LanguageToday is built around a simple principle:
 
@@ -21,10 +21,10 @@ LanguageToday is built around a simple principle:
 The platform provides:
 
 * Free educational content
-* Structured curriculum (Beginner → Intermediate)
+* Structured 10-step curriculum (A1 → C2 CEFR levels)
 * Practical exercises focused on real retention
-* AI-assisted tutor support
-* Full local execution (privacy-first approach)
+* AI-assisted tutor and session generation
+* Support in Portuguese, English, or Spanish
 
 ---
 
@@ -33,72 +33,116 @@ Esse projeto foi desenvolvido utilizando as seguintes tecnologias:
 
 ![](https://skillicons.dev/icons?i=react,vite,idea,ai)
 
-## 🧱 The Three Learning Pillars
+---
+
+## The Three Learning Pillars
 
 LanguageToday is based on three core pillars:
 
-### 1️⃣ Structured Curriculum
+### 1. Structured Curriculum
 
-Content is organized progressively, ensuring logical development from foundational concepts to more advanced topics.
+Content is organized in a fixed 10-step academic path (Alphabet → Greetings → Numbers → … → Advanced), ensuring logical development from foundational concepts to more advanced topics.
 
-### 2️⃣ Active Recall
+### 2. Active Recall
 
-Exercises are designed to reinforce memory through retrieval practice — promoting stronger and longer-lasting retention.
+Exercises are designed to reinforce memory through retrieval practice — promoting stronger and longer-lasting retention. Task types include active-recall, multiple-choice, fill-in-the-blank, and translation.
 
-### 3️⃣ Real Context
+### 3. Real Context
 
-Lessons include everyday phrases, short stories, and dialogues to connect grammar with real-life communication.
+Lessons include everyday phrases, short stories, and dialogues to connect grammar with real-life communication. Daily stories are AI-generated per language.
 
 ---
 
-## 📖 Essential Curriculum
+## Essential Curriculum
 
 Core modules include:
 
-* Personal introduction
-* Formal vs informal language
 * Alphabet and pronunciation
+* Greetings and basic phrases
 * Numbers and basic logic
-
-These modules build a strong linguistic foundation before advancing further.
+* Personal introduction
+* Daily routines and time
+* Formal vs informal language
+* Future plans and intentions
+* Past experiences
+* Complex grammar patterns
+* Advanced vocabulary and nuance
 
 ---
 
-## 🤖 AI Tutor (24/7 Support)
+## AI Tutor (24/7 Support)
 
 LanguageToday includes an AI-powered tutor capable of:
 
 * Grammar correction with explanations
 * Writing practice assistance
-* Answering learner questions
+* Answering learner questions in your support language
 * Session-based learning history
 
-This allows learners to receive continuous guidance while maintaining a self-paced structure.
+All AI content is generated via Groq API (browser-side) and personalized to your target language and level.
 
 ---
 
-## 🔒 Privacy-First Architecture
+## How It Works
 
-All learning activities run locally in the browser.
-
-* No login required
-* No cloud sync
-* No tracking
-* No external data storage
-* User progress remains stored on the device
-
-This ensures maximum privacy and instant performance.
+1. **Sign in** with Supabase (email/password or magic link)
+2. **Choose a language** to study (Czech, English, Spanish, or any new language available in the catalog)
+3. **Set your profile** — name, CEFR level, daily time, and support language for explanations
+4. **Generate your first session** — AI creates 10 activities tailored to your level
+5. **Study** — complete tasks, read stories, review flashcards, and chat with the AI tutor
+6. **Resume anytime** — sessions are saved locally; pick up where you left off
 
 ---
 
-## 📱 Progressive Web App (PWA)
+## Privacy-First Architecture
 
-LanguageToday can be installed as a Progressive Web App (PWA), allowing users to:
+Learning activities run locally in the browser.
+
+* Minimal data collection (email only for auth)
+* All session data stored in localStorage
+* No third-party tracking
+* Supabase used only for auth and shared AI content caching
+* PWA installable on desktop and mobile
+
+---
+
+## Progressive Web App (PWA)
+
+LanguageToday can be installed as a Progressive Web App, allowing users to:
 
 * Install it on desktop or mobile
 * Use it like a native application
 * Access it quickly from the home screen
-  
+
+---
+
+## Environment Setup
+
+Create a `.env` file in the project root with:
+
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_GROQ_API_KEY=your_groq_api_key
+```
+
+Then run:
+
+```bash
+npm install
+npm run dev
+```
+
+---
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start dev server |
+| `npm run build` | Production build |
+| `npm run preview` | Serve `dist/` |
+
 ---
 
 ## Feedback

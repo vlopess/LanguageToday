@@ -1,16 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Sparkles } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useContent } from "../../contexts/ContentContext.jsx";
 import { generateAndSaveSession } from "../../lib/generateSession.js";
-import LogoCzech from "../../assets/logo.png";
-import LogoEnglish from "../../assets/logo_en.png";
-import LogoSpanish from "../../assets/logo_espanhol.png";
-
-
-const display = { fontFamily: "'Bricolage Grotesque', sans-serif" };
-const body    = { fontFamily: "'DM Sans', sans-serif" };
+import { saveDailyStories } from "../../lib/db.js";
+import { saveSession, setCurrentSessionId } from "../../lib/sessions.js";
+import { SUPPORT_LANGUAGES, DEFAULT_SUPPORT_LANGUAGE } from "../../lib/languages.js";
 
 const LEVELS = ['A1','A2','B1','B2','C1','C2'];
 const TIMES  = [
@@ -29,26 +25,36 @@ export const LanguageSelectView = () => {
         setSessionStories,
         setReviewTasks,
         setNeedsSessionGeneration,
+        languages,
     } = useContent();
 
     const navigate = useNavigate();
+    const catalog = languages.length ? languages : [];
 
     const [step, setStep]           = useState(1);
-    const [language, setLanguage]   = useState(userProfile?.currentLanguage || 'english');
+    const [language, setLanguage]   = useState(userProfile?.currentLanguage || '');
+    const [supportLanguage, setSupportLanguage] = useState(userProfile?.supportLanguage || DEFAULT_SUPPORT_LANGUAGE);
+    const [search, setSearch]       = useState('');
     const [name, setName]           = useState(userProfile?.name || '');
     const [level, setLevel]         = useState(userProfile?.level || 'A1');
     const [dailyTime, setDailyTime] = useState(userProfile?.dailyTime || '15');
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError]         = useState(null);
 
-    const accent = language === 'czech' ? '#D71920' : language === 'spanish' ? '#F5A623' : '#11457E';
+    const selectedMeta = catalog.find(l => l.code === language);
+
+    const filteredCatalog = search.trim()
+        ? catalog.filter(l =>
+            l.name.toLowerCase().includes(search.trim().toLowerCase()) ||
+            l.nativeName.toLowerCase().includes(search.trim().toLowerCase()))
+        : catalog;
 
     const handleGenerate = async () => {
-        if (!name.trim()) return;
+        if (!name.trim() || !language) return;
         setIsGenerating(true);
         setError(null);
 
-        const profile = { name: name.trim(), level, dailyTime, completedOnboarding: true };
+        const profile = { name: name.trim(), level, dailyTime, completedOnboarding: true, supportLanguage };
 
         try {
             setCurrentLanguage(language);
@@ -58,12 +64,31 @@ export const LanguageSelectView = () => {
                 userId,
                 language,
                 profile,
+                supportLanguage,
             );
 
             setSessionTasks(tasks);
             setSessionStories(stories);
             setReviewTasks(reviewTasks);
+
+            // Save as a session in the sessions array
+            const session = {
+                id: `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                language,
+                level,
+                createdAt: Date.now(),
+                tasks,
+                reviewTasks,
+                stories,
+            };
+            saveSession(session);
+            setCurrentSessionId(session.id);
             setNeedsSessionGeneration(false);
+
+            if (stories.length) {
+                saveDailyStories(language, stories);
+            }
+
             navigate('/dashboard');
         } catch (err) {
             console.error('[LanguageSelect] generation failed:', err);
@@ -75,16 +100,12 @@ export const LanguageSelectView = () => {
     /* ── Loading screen ── */
     if (isGenerating) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center"
-                style={{ background: '#F7F5F0', ...body }}>
-                <div className="p-6 rounded-[2.5rem] mb-8 shadow-2xl animate-bounce"
-                    style={{ background: accent }}>
-                    <Sparkles className="w-12 h-12 text-white" />
-                </div>
-                <h2 className="text-2xl font-black text-slate-800 mb-2" style={display}>
-                    Building Your Session…
+            <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
+                <span className="w-8 h-8 border-2 border-primary/25 border-t-primary rounded-full animate-spin mb-6"/>
+                <h2 className="font-display font-bold text-xl tracking-tight mb-1">
+                    Preparing your session…
                 </h2>
-                <p className="text-slate-500 font-medium">Generating today's personalised content</p>
+                <p className="text-muted text-sm">Generating today's activities for {selectedMeta?.name || language}.</p>
             </div>
         );
     }
@@ -92,103 +113,105 @@ export const LanguageSelectView = () => {
     /* ── Step 1: Language ── */
     if (step === 1) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-6"
-                style={{ background: '#F7F5F0', ...body }}>
+            <div className="min-h-screen flex flex-col items-center justify-center p-6">
                 <div className="w-full max-w-md">
-                    <div className="text-center mb-10">
-                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] mb-2">
+                    <div className="mb-8">
+                        <p className="text-[13px] text-muted mb-2">
                             {userProfile?.name ? `Welcome back, ${userProfile.name}` : 'Welcome'}
                         </p>
-                        <h1 className="text-3xl font-black text-slate-800 leading-tight" style={display}>
-                            What do you want<br />to study today?
+                        <h1 className="font-display font-bold tracking-tight text-3xl leading-tight">
+                            Which language do
+                            <br/>
+                            you want to study?
                         </h1>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3 mb-8">
-                        {[
-                            { value: 'czech',   icon: LogoCzech,   label: 'Czech',   color: '#D71920' },
-                            { value: 'english', icon: LogoEnglish, label: 'English', color: '#11457E' },
-                            { value: 'spanish', icon: LogoSpanish, label: 'Spanish', color: '#F5A623' },
-                        ].map(({ value, icon, label, color }) => {
-                            const active = language === value;
+                    {catalog.length > 4 && (
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="Search languages…"
+                            className="w-full px-3.5 py-2.5 rounded-lg border border-line bg-surface outline-none text-sm focus-ring focus:border-primary transition-colors mb-4"
+                        />
+                    )}
+
+                    <div className={`grid grid-cols-3 gap-2 mb-6 ${catalog.length > 6 ? 'max-h-[320px] overflow-y-auto pr-0.5' : ''}`}>
+                        {filteredCatalog.map(({ code, nativeName, flagEmoji }) => {
+                            const active = language === code;
                             return (
-                                <button key={value} onClick={() => setLanguage(value)}
-                                    className="flex flex-col items-center justify-center p-5 rounded-[2rem] border-2 bg-white transition-all duration-200"
-                                    style={{
-                                        borderColor: active ? color : '#E5E0D8',
-                                        boxShadow: active ? `0 8px 24px ${color}25` : 'none',
-                                    }}>
-                                    <img src={icon} alt="icon"/>
-                                    <span className="text-sm font-black text-slate-800" style={display}>{label}</span>
-                                    {active && <div className="mt-2 w-2 h-2 rounded-full" style={{ background: color }} />}
+                                <button key={code} onClick={() => setLanguage(code)}
+                                    aria-pressed={active}
+                                    className={`flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl border bg-surface transition-colors focus-ring ${
+                                        active
+                                            ? 'border-primary ring-1 ring-primary'
+                                            : 'border-line hover:border-muted/50'
+                                    }`}>
+                                    <span className="text-2xl leading-none">{flagEmoji}</span>
+                                    <span className="text-[13px] font-medium text-ink text-center leading-tight">{nativeName}</span>
                                 </button>
                             );
                         })}
                     </div>
 
-                    <button onClick={() => setStep(2)}
-                        className="w-full py-4 rounded-2xl font-black text-white text-sm uppercase tracking-widest
-                                   flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
-                        style={{ background: accent }}>
+                    <button onClick={() => language && setStep(2)} disabled={!language}
+                        className="w-full py-3 rounded-lg text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors focus-ring
+                                   bg-primary text-white hover:bg-primary-dark disabled:bg-sunken disabled:text-muted/60 disabled:cursor-not-allowed">
                         Continue
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight size={16}/>
                     </button>
                 </div>
             </div>
         );
     }
 
-    /* ── Step 2: Profile card ── */
+    /* ── Step 2: Profile ── */
+    const inputClass =
+        "w-full px-3.5 py-3 rounded-lg border border-line bg-surface text-sm text-ink placeholder:text-muted/60 focus-ring focus:border-primary transition-colors";
+    const labelClass = "block text-[13px] font-medium mb-1.5";
+
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6"
-            style={{ background: '#F7F5F0', ...body }}>
+        <div className="min-h-screen flex flex-col items-center justify-center p-6">
             <div className="w-full max-w-md">
 
                 <button onClick={() => setStep(1)}
-                    className="flex items-center gap-1 text-slate-400 font-bold text-sm mb-6 hover:text-slate-600 transition-colors">
+                    className="text-[13px] text-muted hover:text-ink transition-colors mb-5 focus-ring">
                     ← Back
                 </button>
 
-                <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-[#E5E0D8]">
-                    <div className="text-center mb-8 flex flex-col items-center">
-                        <img src={language === 'czech' ? LogoCzech : language === 'spanish' ? LogoSpanish : LogoEnglish} alt="icon" width={10}/>
-                        <h2 className="text-xl font-black text-slate-800 mt-3" style={display}>
-                            Your Profile
+                <div className="bg-surface border border-line rounded-xl p-7">
+                    <div className="mb-7">
+                        <p className="text-[13px] text-muted mb-1">
+                            {selectedMeta?.nativeName} {selectedMeta ? `· ${level}` : ''}
+                        </p>
+                        <h2 className="font-display font-bold tracking-tight text-2xl leading-tight">
+                            Your profile
                         </h2>
-                        <p className="text-slate-400 text-sm font-medium mt-1">Confirm your details for today</p>
                     </div>
 
                     <div className="space-y-5">
                         {/* Name */}
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 block"
-                                style={{ color: accent }}>
-                                Your Name
-                            </label>
+                            <label htmlFor="ls-name" className={labelClass}>Seu nome</label>
                             <input
+                                id="ls-name"
                                 type="text"
                                 value={name}
                                 onChange={e => setName(e.target.value)}
-                                className="w-full p-4 rounded-2xl border-2 border-[#E5E0D8] outline-none font-bold text-slate-800 transition-colors"
-                                style={{ fontFamily: body.fontFamily }}
-                                onFocus={e => e.target.style.borderColor = accent}
-                                onBlur={e => e.target.style.borderColor = '#E5E0D8'}
-                                placeholder="Your name"
+                                className={inputClass}
+                                placeholder="What should we call you"
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             {/* Level */}
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 block"
-                                    style={{ color: accent }}>
-                                    Level
-                                </label>
+                                <label htmlFor="ls-level" className={labelClass}>Level</label>
                                 <select
+                                    id="ls-level"
                                     value={level}
                                     onChange={e => setLevel(e.target.value)}
-                                    className="w-full p-4 rounded-2xl border-2 border-[#E5E0D8] outline-none font-bold bg-white text-slate-800 transition-colors"
-                                    style={{ fontFamily: body.fontFamily }}>
+                                    className={`${inputClass} appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2368737D%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22/%3E%3C/svg%3E')] bg-no-repeat bg-[right_0.75rem_center] pr-9`}>
                                     {LEVELS.map(l => (
                                         <option key={l} value={l}>{l}</option>
                                     ))}
@@ -197,38 +220,54 @@ export const LanguageSelectView = () => {
 
                             {/* Daily time */}
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 block"
-                                    style={{ color: accent }}>
-                                    Daily Goal
-                                </label>
+                                <label htmlFor="ls-time" className={labelClass}>Tempo por dia</label>
                                 <select
+                                    id="ls-time"
                                     value={dailyTime}
                                     onChange={e => setDailyTime(e.target.value)}
-                                    className="w-full p-4 rounded-2xl border-2 border-[#E5E0D8] outline-none font-bold bg-white text-slate-800 transition-colors"
-                                    style={{ fontFamily: body.fontFamily }}>
+                                    className={`${inputClass} appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2368737D%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22/%3E%3C/svg%3E')] bg-no-repeat bg-[right_0.75rem_center] pr-9`}>
                                     {TIMES.map(t => (
                                         <option key={t.value} value={t.value}>{t.label}</option>
                                     ))}
                                 </select>
                             </div>
                         </div>
+
+                        {/* Support language (instruction language) */}
+                        <fieldset>
+                            <legend className={labelClass}>Explanations in</legend>
+                            <div className="grid grid-cols-3 gap-2">
+                                {SUPPORT_LANGUAGES.map(({ code, name, flagEmoji }) => {
+                                    const active = supportLanguage === code;
+                                    return (
+                                        <button key={code} type="button" onClick={() => setSupportLanguage(code)}
+                                            aria-pressed={active}
+                                            className={`flex items-center justify-center gap-2 py-2.5 px-2 rounded-lg border text-[13px] font-medium transition-colors focus-ring ${
+                                                active
+                                                    ? 'border-primary text-primary bg-primary-soft'
+                                                    : 'border-line text-muted hover:border-muted/50'
+                                            }`}>
+                                            <span>{flagEmoji}</span>
+                                            {name}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </fieldset>
                     </div>
 
                     {error && (
-                        <p className="text-red-500 text-sm font-medium text-center mt-4">{error}</p>
+                        <p role="alert" className="mt-4 text-danger bg-danger-soft border border-danger/20 rounded-lg px-3.5 py-2.5 text-[13px]">
+                            {error}
+                        </p>
                     )}
 
                     <button
                         onClick={handleGenerate}
                         disabled={!name.trim()}
-                        className="w-full mt-8 py-4 rounded-2xl font-black text-white text-sm uppercase tracking-widest
-                                   flex items-center justify-center gap-2 transition-all shadow-lg"
-                        style={{
-                            background: name.trim() ? accent : '#CBD5E1',
-                            cursor: name.trim() ? 'pointer' : 'not-allowed',
-                        }}>
-                        <Sparkles className="w-4 h-4" />
-                        Generate Session
+                        className="w-full mt-7 py-3 rounded-lg text-sm font-semibold transition-colors focus-ring
+                                   bg-primary text-white hover:bg-primary-dark disabled:bg-sunken disabled:text-muted/60 disabled:cursor-not-allowed">
+                        Generate first session
                     </button>
                 </div>
             </div>

@@ -8,8 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        "name": "ČeštinaToday",
-        "short_name": "ČeštinaToday",
+        "name": "LanguageToday",
+        "short_name": "LanguageToday",
         "theme_color": "#11457E",
         "background_color": "#ffffff",
         "display": "standalone",

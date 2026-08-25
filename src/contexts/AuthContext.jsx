@@ -33,13 +33,17 @@ export function AuthProvider({ children }) {
     };
 
     const signOut = () => {
-        // Keep only userProfile (name, level) and last selected language
+        // Keep userProfile, currentLanguage, and sessions across sign-out
         const profile = localStorage.getItem('userProfile');
         const language = localStorage.getItem('currentLanguage');
+        const sessions = localStorage.getItem('sessions');
+        const currentSessionId = localStorage.getItem('currentSessionId');
         localStorage.clear();
         sessionStorage.removeItem('freshLogin');
         if (language) localStorage.setItem('currentLanguage', language);
         if (profile) localStorage.setItem('userProfile', profile);
+        if (sessions) localStorage.setItem('sessions', sessions);
+        if (currentSessionId) localStorage.setItem('currentSessionId', currentSessionId);
         return supabase.auth.signOut();
     };
 

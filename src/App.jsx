@@ -8,11 +8,10 @@ import { ChatView } from "./ui/ChatView/ChatView.jsx";
 import { FlasCardView } from "./ui/FlashcardView/FlashcardView.jsx";
 import { StudyTopic } from "./ui/StudyTopic/StudyTopic.jsx";
 import { TeleprompterView } from "./ui/TeleprompterView/TeleprompterView.jsx";
-import { LandingCestina } from "./ui/Landing/LandingCestina.jsx";
-import { Landing } from "./ui/Landing/LandingEnglish.jsx";
-import { LandingSpanish } from "./ui/Landing/LandingSpanish.jsx";
+import { Landing } from "./ui/Landing/Landing.jsx";
 import { AuthView } from "./ui/AuthView/AuthView.jsx";
 import { LanguageSelectView } from "./ui/LanguageSelectView/LanguageSelectView.jsx";
+import { SessionListView } from "./ui/SessionListView/SessionListView.jsx";
 import { Navigate } from "react-router-dom";
 
 const App = () => (
@@ -20,11 +19,13 @@ const App = () => (
         <BrowserRouter>
             <Routes>
                 <Route path="/" element={<Landing />} />
-                <Route path="/czech" element={<LandingCestina />} />
-                <Route path="/spanish" element={<LandingSpanish />} />
+                {/* Legacy per-language landing routes */}
+                <Route path="/czech" element={<Navigate to="/" replace />} />
+                <Route path="/spanish" element={<Navigate to="/" replace />} />
                 <Route path="/auth" element={<AuthView />} />
                 <Route path="/onboarding" element={<Navigate to="/language-select" replace />} />
                 <Route path="/language-select" element={<LanguageSelectView />} />
+                <Route path="/sessions" element={<ProtectRoute><SessionListView /></ProtectRoute>} />
                 <Route path="/dashboard" element={<ProtectRoute><DashboardView /></ProtectRoute>} />
                 <Route path="/lesson" element={<ProtectRoute><LessonModeView /></ProtectRoute>} />
                 <Route path="/story" element={<ProtectRoute><StoryView /></ProtectRoute>} />

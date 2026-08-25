@@ -1,10 +1,6 @@
 import {
-    ALargeSmall, BookOpen, Briefcase, ChevronRight, Hash,
-    HelpCircle, LogOut, MessageCircle, Pin,
-    RefreshCw, User, Globe, Home, Plane, Coffee, Zap,
-    ShoppingCart, Heart, Star, Leaf, Music, Camera, Code,
-    Sun, Moon, Utensils, Stethoscope, GraduationCap, Building,
-    Mic, Timer, Flame, CalendarDays, Clock,
+    BookOpen, ChevronRight, LogOut,
+    RefreshCw, Timer,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -13,50 +9,8 @@ import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useTimer } from "../../contexts/TimerContext.jsx";
 import { BottomNavBar } from "../BottomNavBar/BottomNavBar.jsx";
 import Catharina from "../../assets/Catharina.png";
-import LogoCzech from "../../assets/logo.png";
-import LogoEnglish from "../../assets/logo_en.png";
-import LogoSp from "../../assets/logo_espanhol.png";
 import { getStudySessions } from "../../lib/db.js";
-
-const display = { fontFamily: "'Bricolage Grotesque', sans-serif" };
-const body    = { fontFamily: "'DM Sans', sans-serif" };
-
-/* Apple system colors */
-const C = {
-    bg:        '#F2F2F7',
-    card:      '#FFFFFF',
-    label:     '#1D1D1F',
-    secondary: '#3C3C43',
-    tertiary:  '#8E8E93',
-    fill:      'rgba(120,120,128,0.12)',
-    separator: 'rgba(60,60,67,0.12)',
-    brand:     '#11457E',
-    red:       '#D71920',
-};
-
-const shadow = { boxShadow: '0 2px 16px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.04)' };
-
-/* ── Icon map ── */
-const EMOJI_ICON_MAP = {
-    '👋': User,         '👔': Briefcase,      '💬': MessageCircle,
-    '🆘': HelpCircle,   '🔤': ALargeSmall,    '🔢': Hash,
-    '📚': BookOpen,     '🌍': Globe,           '🏠': Home,
-    '✈️': Plane,        '☕': Coffee,          '⚡': Zap,
-    '🛒': ShoppingCart, '❤️': Heart,           '⭐': Star,
-    '🌿': Leaf,         '🎵': Music,           '📷': Camera,
-    '💻': Code,         '☀️': Sun,             '🌙': Moon,
-    '🍽️': Utensils,    '🩺': Stethoscope,     '🎓': GraduationCap,
-    '🏢': Building,
-};
-
-const TOPIC_COLORS = [
-    { bg: '#EBF2FB', color: '#11457E' },
-    { bg: '#FDEAEA', color: '#D71920' },
-    { bg: '#E8F8EF', color: '#248A52' },
-    { bg: '#FFF3E0', color: '#C2680B' },
-    { bg: '#F0EEFF', color: '#5E35B1' },
-    { bg: '#FCE4F0', color: '#C2185B' },
-];
+import { CURRICULUM } from "../../lib/generateTopics.js";
 
 /* ── Helpers ── */
 function computeStreak(sessions) {
@@ -83,6 +37,15 @@ function computeWeekStats(sessions) {
     return { count: week.length, minutes: week.reduce((a, s) => a + s.duration_minutes, 0) };
 }
 
+/* ── Section label ── */
+function SectionLabel({ children }) {
+    return (
+        <h2 className="text-[13px] font-semibold mb-2 px-0.5">
+            {children}
+        </h2>
+    );
+}
+
 /* ── Timer widget ── */
 function TimerWidget() {
     const { secondsLeft, progress } = useTimer();
@@ -91,24 +54,19 @@ function TimerWidget() {
     const pct  = progress * 100;
 
     return (
-        <div className="bg-white rounded-2xl px-4 py-3.5" style={shadow}>
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg flex items-center justify-center"
-                         style={{ background: '#EBF2FB' }}>
-                        <Timer className="w-3.5 h-3.5" style={{ color: C.brand }} strokeWidth={2.5}/>
-                    </div>
-                    <span className="text-[13px] font-medium" style={{ color: C.tertiary }}>
-                        Session Timer
-                    </span>
-                </div>
-                <span className="text-[15px] font-bold tabular-nums" style={{ color: C.label, ...display }}>
+        <div className="bg-surface border border-line rounded-xl px-4 py-3.5">
+            <div className="flex items-center justify-between mb-2.5">
+                <span className="flex items-center gap-1.5 text-[13px] text-muted">
+                    <Timer size={14}/>
+                    Session time
+                </span>
+                <span className="text-[15px] font-semibold tabular-nums">
                     {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
                 </span>
             </div>
-            <div className="h-[3px] rounded-full overflow-hidden" style={{ background: C.fill }}>
+            <div className="h-[3px] rounded-full overflow-hidden bg-sunken">
                 <div className="h-full rounded-full transition-all duration-1000"
-                     style={{ width: `${pct}%`, background: pct >= 100 ? '#34C759' : C.brand }}/>
+                     style={{ width: `${pct}%`, background: pct >= 100 ? '#1B7A43' : '#11457E' }}/>
             </div>
         </div>
     );
@@ -120,27 +78,17 @@ function StatsRow({ sessions }) {
     const weekStats = computeWeekStats(sessions);
 
     const stats = [
-        { icon: Flame,        value: streak,            label: 'Streak',   accent: '#FF9500', bg: '#FFF3E0' },
-        { icon: CalendarDays, value: weekStats.count,   label: 'This week', accent: C.brand,  bg: '#EBF2FB' },
-        { icon: Clock,        value: weekStats.minutes, label: 'Minutes',  accent: C.red,     bg: '#FDEAEA' },
+        { value: streak,                          label: 'day streak' },
+        { value: weekStats.count,                 label: 'this week' },
+        { value: `${weekStats.minutes} min`,      label: 'in 7 days' },
     ];
 
     return (
-        <div className="grid grid-cols-3 gap-2.5">
-            {stats.map(({ icon: Icon, value, label, accent, bg }) => (
-                <div key={label} className="bg-white rounded-2xl p-3.5 flex flex-col items-center text-center"
-                     style={shadow}>
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-2"
-                         style={{ background: bg }}>
-                        <Icon className="w-4 h-4" style={{ color: accent }} strokeWidth={2.5}/>
-                    </div>
-                    <span className="text-[22px] font-bold leading-none" style={{ color: C.label, ...display }}>
-                        {value}
-                    </span>
-                    <span className="text-[10px] font-medium mt-1.5 uppercase tracking-wide"
-                          style={{ color: C.tertiary }}>
-                        {label}
-                    </span>
+        <div className="bg-surface border border-line rounded-xl grid grid-cols-3 divide-x divide-line">
+            {stats.map(({ value, label }) => (
+                <div key={label} className="px-3 py-3.5">
+                    <p className="font-display font-bold text-xl leading-none tabular-nums">{value}</p>
+                    <p className="text-[11px] text-muted mt-1.5">{label}</p>
                 </div>
             ))}
         </div>
@@ -148,32 +96,42 @@ function StatsRow({ sessions }) {
 }
 
 /* ── Academic path list ── */
-function AcademicList({ studyMaterial, onSelect }) {
-    if (!studyMaterial.length) return null;
+function AcademicList({ studyMaterial, studyMaterialLoading, onSelect }) {
+    if (!studyMaterial.length && !studyMaterialLoading) return null;
     return (
         <div>
-            <SectionLabel>Academic Path</SectionLabel>
-            <div className="bg-white rounded-2xl overflow-hidden" style={shadow}>
-                {studyMaterial.map((mat, i) => {
-                    const Icon  = EMOJI_ICON_MAP[mat.emoji] ?? BookOpen;
-                    const theme = TOPIC_COLORS[i % TOPIC_COLORS.length];
-                    return (
-                        <button key={i} onClick={() => onSelect(mat)}
-                                className="w-full flex items-center gap-3.5 px-4 py-3 text-left
-                                           hover:bg-black/[0.025] active:bg-black/[0.04] transition-colors"
-                                style={{ borderTop: i > 0 ? `1px solid ${C.separator}` : 'none' }}>
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                                 style={{ background: theme.bg }}>
-                                <Icon className="w-4 h-4" style={{ color: theme.color }} strokeWidth={2}/>
-                            </div>
-                            <span className="flex-1 text-[14px] font-medium" style={{ color: C.label }}>
-                                {mat.topic}
-                            </span>
-                            <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: '#C7C7CC' }}/>
-                        </button>
-                    );
-                })}
-            </div>
+            <SectionLabel>Academic path</SectionLabel>
+            {studyMaterialLoading && (
+                <p className="text-[13px] text-muted flex items-center gap-2 py-3">
+                    <span className="w-3.5 h-3.5 border-2 border-primary/20 border-t-primary rounded-full animate-spin"/>
+                    Building your path…
+                </p>
+            )}
+            {!studyMaterialLoading && (
+                <ol className="bg-surface border border-line rounded-xl divide-y divide-line overflow-hidden">
+                    {studyMaterial.map((mat, i) => (
+                        <li key={i}>
+                            <button onClick={() => onSelect(mat)}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-sunken transition-colors focus-ring">
+                                <span className="text-[11px] font-medium text-muted/70 tabular-nums w-4 flex-shrink-0">
+                                    {String(i + 1).padStart(2, '0')}
+                                </span>
+                                <span className="flex-1 min-w-0">
+                                    <span className="block text-sm font-medium truncate">
+                                        {mat.topic}
+                                    </span>
+                                    {CURRICULUM[i]?.blurb && (
+                                        <span className="block text-[12px] text-muted mt-0.5 truncate">
+                                            {CURRICULUM[i].blurb}
+                                        </span>
+                                    )}
+                                </span>
+                                <ChevronRight size={15} className="flex-shrink-0 text-muted/50"/>
+                            </button>
+                        </li>
+                    ))}
+                </ol>
+            )}
         </div>
     );
 }
@@ -182,9 +140,10 @@ function AcademicList({ studyMaterial, onSelect }) {
 export const DashboardView = () => {
     const {
         sessionTasks, reviewTasks,
-        setSelectedStory, sessionStories,
-        setSelectedStudyTopic, studyMaterial,
+        setSelectedStory, sessionStories, sessionStoriesLoading,
+        setSelectedStudyTopic, studyMaterial, studyMaterialLoading,
         savedStories, currentLanguage, userProfile,
+        languageMeta,
     } = useContent();
     const { signOut, userId } = useAuth();
     const { lastCompletedAt } = useTimer();
@@ -200,8 +159,7 @@ export const DashboardView = () => {
     const handleSignOut = async () => { await signOut(); navigate('/'); };
 
     const initial   = userProfile?.name?.[0]?.toUpperCase() || '?';
-    const langLabel = currentLanguage === 'english' ? 'English'
-                    : currentLanguage === 'spanish' ? 'Spanish' : 'Czech';
+    const langLabel = languageMeta?.nativeName || languageMeta?.name || '';
 
     const handleAcademicSelect = (mat) => {
         setSelectedStudyTopic(mat);
@@ -209,253 +167,159 @@ export const DashboardView = () => {
     };
 
     return (
-        <div className="min-h-screen pb-24" style={{ background: C.bg, ...body }}>
+        <div className="min-h-screen pb-24">
 
             {/* ── HEADER ── */}
-            <header className="sticky top-0 z-20"
-                style={{
-                    background: 'rgba(242,242,247,0.88)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    borderBottom: `1px solid ${C.separator}`,
-                }}>
-                <div className="max-w-5xl mx-auto flex items-center justify-between px-5 py-3">
-                    <div className="flex items-center gap-2.5">
-                        <img src={currentLanguage === 'english' ? LogoEnglish : currentLanguage === 'czech' ? LogoCzech : LogoSp }
-                             alt="Logo" width={68} className="opacity-90"/>
+            <header className="sticky top-0 z-20 bg-paper border-b border-line">
+                <div className="max-w-5xl mx-auto flex items-center justify-between px-5 h-14">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xl leading-none" title={langLabel}>
+                            {languageMeta?.flagEmoji || ''}
+                        </span>
+                        <span className="text-sm font-semibold truncate">{langLabel}</span>
+                        <span className="text-[13px] text-muted">· {userProfile?.level || 'A1'}</span>
                     </div>
                     <div className="flex items-center gap-2.5">
-                        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white"
-                             style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-                            <span className="text-[12px] font-medium" style={{ color: C.tertiary }}>
-                                {langLabel}
-                            </span>
-                            <div className="w-px h-3" style={{ background: C.separator }}/>
-                            <span className="text-[12px] font-semibold" style={{ color: C.brand }}>
-                                {userProfile?.level || 'A1'}
-                            </span>
-                        </div>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center
-                                        text-white text-xs font-semibold"
-                             style={{ background: C.brand, ...display }}>
+                        <div aria-hidden
+                             className="w-7 h-7 rounded-full flex items-center justify-center bg-primary text-white text-xs font-semibold">
                             {initial}
                         </div>
-                        <button onClick={handleSignOut}
-                            className="p-1.5 rounded-xl transition-colors hover:bg-black/[0.06]"
-                            style={{ color: C.tertiary }}>
-                            <LogOut className="w-4 h-4"/>
+                        <button onClick={handleSignOut} aria-label="Sign out"
+                            className="p-2 -mr-2 text-muted hover:text-ink transition-colors focus-ring">
+                            <LogOut size={16}/>
                         </button>
                     </div>
                 </div>
             </header>
 
             {/* ── LAYOUT ── */}
-            <div className="max-w-5xl mx-auto px-5 pt-6
-                            flex flex-col lg:flex-row lg:gap-7 lg:items-start">
+            <div className="max-w-5xl mx-auto px-5 pt-8
+                            flex flex-col lg:flex-row lg:gap-10 lg:items-start">
 
-                {/* ══════════════════════
-                    SIDEBAR
-                    ══════════════════════ */}
-                <aside className="w-full lg:w-[300px] lg:flex-shrink-0
-                                  lg:sticky lg:top-[57px] space-y-5">
+                {/* SIDEBAR */}
+                <aside className="w-full lg:w-[280px] lg:flex-shrink-0
+                                  lg:sticky lg:top-[72px] space-y-7">
 
                     {/* Welcome */}
-                    <div className="px-1">
-                        <p className="text-[12px] font-medium mb-0.5" style={{ color: C.tertiary }}>
-                            Welcome back,
-                        </p>
-                        <h1 className="leading-tight mb-3"
-                            style={{ ...display, fontWeight: 700, fontSize: 'clamp(2rem,7vw,2.4rem)', color: C.label }}>
-                            {userProfile?.name || 'Learner'}.
+                    <div className="px-0.5">
+                        <p className="text-[13px] text-muted mb-1">Welcome back,</p>
+                        <h1 className="font-display font-bold tracking-tight leading-tight mb-2
+                                       text-4xl lg:text-[2.6rem]">
+                            {userProfile?.name || 'Student'}.
                         </h1>
-                        <div className="flex flex-wrap gap-1.5">
-                            <span className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
-                                  style={{ background: 'rgba(17,69,126,0.1)', color: C.brand }}>
-                                {langLabel}
-                            </span>
-                            <span className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
-                                  style={{ background: 'rgba(215,25,32,0.08)', color: C.red }}>
-                                {userProfile?.level || 'A1'}
-                            </span>
-                            <span className="text-[12px] font-medium px-2.5 py-1 rounded-full"
-                                  style={{ background: C.fill, color: C.tertiary }}>
-                                {userProfile?.dailyTime || 15} min/day
-                            </span>
-                        </div>
+                        <p className="text-[13px] text-muted">
+                            {userProfile?.dailyTime || 15} min a day · level {userProfile?.level || 'A1'}
+                        </p>
                     </div>
 
-                    {/* Timer */}
                     <TimerWidget />
 
-                    {/* Stats */}
                     <div>
-                        <SectionLabel>Study Frequency</SectionLabel>
+                        <SectionLabel>Activity</SectionLabel>
                         <StatsRow sessions={studySessions}/>
                     </div>
 
-                    {/* Academic path */}
-                    <AcademicList studyMaterial={studyMaterial} onSelect={handleAcademicSelect}/>
+                    <AcademicList studyMaterial={studyMaterial} studyMaterialLoading={studyMaterialLoading} onSelect={handleAcademicSelect}/>
 
                 </aside>
 
-                {/* ══════════════════════
-                    MAIN CONTENT
-                    ══════════════════════ */}
-                <main className="flex-1 min-w-0 space-y-5 mt-5 lg:mt-0">
+                {/* MAIN CONTENT */}
+                <main className="flex-1 min-w-0 space-y-7 mt-9 lg:mt-0">
 
                     {/* Today's Session */}
-                    <div>
-                        <SectionLabel>Today's Session</SectionLabel>
-                        <div className="grid grid-cols-2 gap-3">
+                    <section>
+                        <SectionLabel>Today's session</SectionLabel>
+                        <div className="grid sm:grid-cols-2 gap-3">
 
-                            <Link to="/lesson">
-                                <div className="bg-white rounded-2xl overflow-hidden
-                                                hover:scale-[1.02] active:scale-[0.98]
-                                                transition-transform duration-200 cursor-pointer"
-                                     style={shadow}>
-                                    <div className="h-1 rounded-b-none" style={{ background: C.brand }}/>
-                                    <div className="p-5 flex flex-col justify-between h-40">
-                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                             style={{ background: '#EBF2FB' }}>
-                                            <BookOpen className="w-5 h-5" style={{ color: C.brand }}/>
-                                        </div>
-                                        <div>
-                                            <p className="text-[32px] font-bold leading-none"
-                                               style={{ color: C.label, ...display }}>
-                                                {String(sessionTasks.length).padStart(2, '0')}
-                                            </p>
-                                            <p className="text-[12px] font-medium mt-1"
-                                               style={{ color: C.tertiary }}>
-                                                Tasks today
-                                            </p>
-                                        </div>
-                                    </div>
+                            <Link to="/lesson" className="group focus-ring rounded-xl">
+                                <div className="h-full bg-surface border border-line rounded-xl p-5
+                                                hover:border-primary transition-colors">
+                                    <p className="font-display font-bold text-2xl tabular-nums mb-1">
+                                        {String(sessionTasks.length).padStart(2, '0')} tasks
+                                    </p>
+                                    <p className="text-[13px] text-muted leading-relaxed mb-4">
+                                        Exercises generated for today: recall, sentences and errors.
+                                    </p>
+                                    <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-primary group-hover:gap-1.5 transition-all">
+                                        Start <ChevronRight size={14}/>
+                                    </span>
                                 </div>
                             </Link>
 
-                            <Link to="/flashcard">
-                                <div className="bg-white rounded-2xl overflow-hidden
-                                                hover:scale-[1.02] active:scale-[0.98]
-                                                transition-transform duration-200 cursor-pointer"
-                                     style={shadow}>
-                                    <div className="h-1 rounded-b-none" style={{ background: '#3C3C43' }}/>
-                                    <div className="p-5 flex flex-col justify-between h-40">
-                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                             style={{ background: 'rgba(60,60,67,0.08)' }}>
-                                            <RefreshCw className="w-5 h-5" style={{ color: '#3C3C43' }}/>
-                                        </div>
-                                        <div>
-                                            <p className="text-[32px] font-bold leading-none"
-                                               style={{ color: C.label, ...display }}>
-                                                {String(reviewTasks.length).padStart(2, '0')}
-                                            </p>
-                                            <p className="text-[12px] font-medium mt-1"
-                                               style={{ color: C.tertiary }}>
-                                                Flashcards
-                                            </p>
-                                        </div>
-                                    </div>
+                            <Link to="/flashcard" className="group focus-ring rounded-xl">
+                                <div className="h-full bg-surface border border-line rounded-xl p-5
+                                                hover:border-primary transition-colors">
+                                    <p className="font-display font-bold text-2xl tabular-nums mb-1">
+                                        {String(reviewTasks.length).padStart(2, '0')} cards
+                                    </p>
+                                    <p className="text-[13px] text-muted leading-relaxed mb-4">
+                                        Quick review of vocabulary from recent sessions.
+                                    </p>
+                                    <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-primary group-hover:gap-1.5 transition-all">
+                                        Review <RefreshCw size={13}/>
+                                    </span>
                                 </div>
                             </Link>
 
                         </div>
-                    </div>
+                    </section>
 
                     {/* AI Language Tutor */}
-                    <div>
-                        <SectionLabel>AI Language Tutor</SectionLabel>
-                        <div className="space-y-3">
+                    <section>
+                        <SectionLabel>Practice</SectionLabel>
+                        <div className="bg-surface border border-line rounded-xl divide-y divide-line overflow-hidden">
 
-                            {/* Catharina — featured card */}
-                            <Link to="/chat">
-                                <div className="group relative rounded-2xl overflow-hidden cursor-pointer
-                                                hover:scale-[1.01] active:scale-[0.99]
-                                                transition-transform duration-200"
-                                     style={{
-                                         background: 'linear-gradient(135deg, #0D1B2A 0%, #11457E 100%)',
-                                         minHeight: 156,
-                                         boxShadow: '0 4px 24px rgba(17,69,126,0.28)',
-                                     }}>
-                                    <div className="absolute -right-8 -bottom-8 w-40 h-40 rounded-full pointer-events-none"
-                                         style={{ border: '20px solid rgba(255,255,255,0.04)' }}/>
-                                    <div className="relative z-10 p-6 max-w-[62%]">
-                                        <p className="text-[11px] font-semibold uppercase tracking-widest mb-2"
-                                           style={{ color: 'rgba(255,255,255,0.45)' }}>
-                                            AI Tutor
-                                        </p>
-                                        <h3 className="text-white text-[20px] font-bold leading-tight mb-4"
-                                            style={display}>
-                                            Talk to Catharina
-                                        </h3>
-                                        <div className="inline-flex items-center gap-1.5 text-[12px] font-semibold
-                                                        px-3 py-1.5 rounded-full text-white/90"
-                                             style={{ background: 'rgba(255,255,255,0.12)',
-                                                      backdropFilter: 'blur(8px)' }}>
-                                            Start chatting
-                                            <ChevronRight className="w-3.5 h-3.5
-                                                                      group-hover:translate-x-0.5
-                                                                      transition-transform"/>
-                                        </div>
-                                    </div>
-                                    <img src={Catharina} alt="Catharina"
-                                         className="absolute bottom-0 right-0 h-36 object-contain
-                                                    object-bottom pointer-events-none"
-                                         style={{ filter: 'drop-shadow(0 -4px 16px rgba(0,0,0,0.25))' }}/>
+                            <Link to="/chat" className="group flex items-center gap-3.5 px-4 py-3.5 hover:bg-sunken transition-colors">
+                                <img src={Catharina} alt="" aria-hidden
+                                     className="w-10 h-10 object-contain object-bottom mix-blend-multiply flex-shrink-0"/>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold">Chat with Catharina</p>
+                                    <p className="text-[12px] text-muted mt-0.5 truncate">
+                                        Conversation scenarios with explained corrections
+                                    </p>
                                 </div>
+                                <ChevronRight size={15} className="flex-shrink-0 text-muted/50"/>
                             </Link>
 
-                            {/* Teleprompter — list row */}
-                            <div className="bg-white rounded-2xl overflow-hidden" style={shadow}>
-                                <Link to="/teleprompter">
-                                    <div className="group flex items-center gap-3.5 px-4 py-4
-                                                    hover:bg-black/[0.02] active:bg-black/[0.04]
-                                                    transition-colors">
-                                        <div className="w-10 h-10 rounded-xl flex items-center
-                                                        justify-center flex-shrink-0"
-                                             style={{ background: '#1D1D1F' }}>
-                                            <Mic className="w-5 h-5 text-white"/>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[15px] font-semibold" style={{ color: C.label }}>
-                                                Teleprompter
-                                            </p>
-                                            <p className="text-[12px] mt-0.5" style={{ color: C.tertiary }}>
-                                                Read aloud with AI-generated texts
-                                            </p>
-                                        </div>
-                                        <ChevronRight className="w-4 h-4 flex-shrink-0"
-                                                      style={{ color: '#C7C7CC' }}/>
-                                    </div>
-                                </Link>
-                            </div>
+                            <Link to="/teleprompter" className="group flex items-center gap-3.5 px-4 py-3.5 hover:bg-sunken transition-colors">
+                                <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+                                    <BookOpen size={18} strokeWidth={1.8} className="text-muted"/>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold">Teleprompter</p>
+                                    <p className="text-[12px] text-muted mt-0.5 truncate">
+                                        Read aloud with auto-scrolling text
+                                    </p>
+                                </div>
+                                <ChevronRight size={15} className="flex-shrink-0 text-muted/50"/>
+                            </Link>
 
                         </div>
-                    </div>
+                    </section>
 
                     {/* Immersion Stories */}
-                    {sessionStories.length > 0 && (
-                        <div>
-                            <SectionLabel>Immersion Stories</SectionLabel>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {sessionStories.map((story, i) => (
-                                    <StoryCard key={i} story={story} index={i}
-                                               onClick={() => setSelectedStory(story)}/>
-                                ))}
-                            </div>
-                        </div>
+                    {sessionStoriesLoading && (
+                        <section>
+                            <SectionLabel>Today's stories</SectionLabel>
+                            <p className="text-[13px] text-muted flex items-center gap-2 py-3">
+                                <span className="w-3.5 h-3.5 border-2 border-primary/20 border-t-primary rounded-full animate-spin"/>
+                                Generating stories…
+                            </p>
+                        </section>
+                    )}
+                    {!sessionStoriesLoading && sessionStories.length > 0 && (
+                        <section>
+                            <SectionLabel>Today's stories</SectionLabel>
+                            <StoryRows stories={sessionStories} onSelect={setSelectedStory} navigate={navigate}/>
+                        </section>
                     )}
 
                     {/* Pinned Stories */}
                     {savedStories.length > 0 && (
-                        <div>
-                            <SectionLabel>Pinned Stories</SectionLabel>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {savedStories.map((story, i) => (
-                                    <StoryCard key={i} story={story} index={i} pinned
-                                               onClick={() => setSelectedStory(story)}/>
-                                ))}
-                            </div>
-                        </div>
+                        <section>
+                            <SectionLabel>Saved stories</SectionLabel>
+                            <StoryRows stories={savedStories} onSelect={setSelectedStory} navigate={navigate} pinned/>
+                        </section>
                     )}
 
                 </main>
@@ -466,50 +330,28 @@ export const DashboardView = () => {
     );
 };
 
-/* ── SectionLabel ── */
-function SectionLabel({ children }) {
+/* ── StoryRows ── */
+function StoryRows({ stories, pinned = false, onSelect, navigate }) {
     return (
-        <p className="text-[11px] font-semibold uppercase tracking-wider mb-2.5 px-0.5"
-           style={{ color: C.tertiary, fontFamily: "'DM Sans', sans-serif" }}>
-            {children}
-        </p>
-    );
-}
-
-/* ── StoryCard ── */
-function StoryCard({ story, index, pinned = false, onClick }) {
-    const theme = TOPIC_COLORS[index % TOPIC_COLORS.length];
-    return (
-        <div onClick={onClick}
-             className="bg-white rounded-2xl cursor-pointer
-                        hover:scale-[1.01] active:scale-[0.99]
-                        transition-transform duration-200"
-             style={shadow}>
-            <Link to="/story">
-                <div className="flex items-center gap-3.5 px-4 py-3.5">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                         style={{ background: pinned ? '#FFF3E0' : theme.bg }}>
-                        <BookOpen className="w-4.5 h-4.5"
-                                  style={{ color: pinned ? '#C2680B' : theme.color }}/>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-[14px] font-semibold truncate"
-                           style={{ color: C.label, fontFamily: "'Bricolage Grotesque', sans-serif" }}>
-                            {story.title}
-                        </p>
-                        {pinned
-                            ? <p className="text-[12px] font-medium mt-0.5 flex items-center gap-1"
-                                 style={{ color: '#C2680B' }}>
-                                <Pin className="w-3 h-3"/> Pinned
-                              </p>
-                            : <p className="text-[12px] mt-0.5" style={{ color: C.tertiary }}>
-                                Immersive reading
-                              </p>
-                        }
-                    </div>
-                    <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: '#C7C7CC' }}/>
-                </div>
-            </Link>
-        </div>
+        <ul className="bg-surface border border-line rounded-xl divide-y divide-line overflow-hidden">
+            {stories.map((story, i) => (
+                <li key={i}>
+                    <button onClick={() => { onSelect(story); navigate('/story'); }}
+                            className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left
+                                       hover:bg-sunken transition-colors focus-ring">
+                        <span aria-hidden className="text-lg leading-none w-6 text-center flex-shrink-0">
+                            {story.icon || '📖'}
+                        </span>
+                        <span className="flex-1 min-w-0">
+                            <span className="block text-sm font-medium truncate">{story.title}</span>
+                            <span className={`block text-[12px] mt-0.5 ${pinned ? 'text-warning' : 'text-muted'}`}>
+                                {pinned ? 'Saved' : 'Immersive reading'}
+                            </span>
+                        </span>
+                        <ChevronRight size={15} className="flex-shrink-0 text-muted/50"/>
+                    </button>
+                </li>
+            ))}
+        </ul>
     );
 }

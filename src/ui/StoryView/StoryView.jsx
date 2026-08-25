@@ -8,14 +8,20 @@ import { useAuth } from "../../contexts/AuthContext.jsx";
 export const StoryView = () => {
     const navigate = useNavigate();
     const { userId } = useAuth();
-    const { selectedStory, savedStories, setSavedStories, currentLanguage } = useContent();
+    const { selectedStory, savedStories, setSavedStories, currentLanguage, languageMeta, userProfile } = useContent();
     const [showTranslation, setShowTranslation] = useState(false);
     const [savedPin, setSavedPin] = useState(null);
 
     useEffect(() => {
+        if (!selectedStory) {
+            navigate('/dashboard');
+            return;
+        }
         const hasStory = savedStories.find(e => e.title === selectedStory.title);
         if (hasStory) setSavedPin(selectedStory.title);
     }, []);
+
+    if (!selectedStory) return null;
 
     const updatePin = (title) => {
         if (title) {
@@ -29,77 +35,75 @@ export const StoryView = () => {
         removeSavedStory(userId, selectedStory.title);
     };
 
-    const isCzech = currentLanguage === 'czech';
-    // czech → translate to English | english → translate to Portuguese
-    const originalLabel = isCzech ? 'Cestina' : 'English';
-    const translationLabel = isCzech ? 'English' : 'Portugues';
+    // Labels come from the language catalog + profile support language
+    const langName = languageMeta?.name || '';
+    const supportLabels = {
+        portuguese: 'Português',
+        english: 'English',
+        spanish: 'Español',
+    };
+    const originalLabel = langName || 'Original';
+    const translationLabel = supportLabels[userProfile?.supportLanguage] || 'Translation';
+
+    const tabClass = (active) =>
+        `flex-1 py-3 text-[13px] font-medium transition-colors border-b-2 -mb-px focus-ring ${
+            active
+                ? 'text-primary border-primary'
+                : 'text-muted border-transparent hover:text-ink'
+        }`;
 
     return (
-        <div className="min-h-screen flex flex-col" style={{ background: '#F7F5F0', fontFamily: "'DM Sans', sans-serif" }}>
+        <div className="min-h-screen flex flex-col">
 
             {/* Header */}
-            <header className="sticky top-0 z-20 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between">
+            <header className="sticky top-0 z-20 bg-surface border-b border-line px-4 sm:px-5 h-14 flex items-center justify-between">
                 <button
                     onClick={() => navigate('/dashboard')}
-                    className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm font-semibold"
+                    className="flex items-center gap-1.5 text-muted hover:text-ink transition-colors text-[13px] font-medium focus-ring"
                 >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft size={15}/>
                     Back
                 </button>
 
-                <div className="flex-1 mx-4 min-w-0">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5">
-                        {isCzech ? 'Czech Story' : 'English Story'}
-                    </p>
-
-                    <h2 className="font-black text-sm text-slate-800 truncate" style={{ fontFamily: "'Bricolage Grotesque', sans-serif" }}>
-                        {selectedStory.title}
-                    </h2>
-                </div>
+                <h2 className="font-display font-bold tracking-tight text-sm truncate max-w-[50%] mx-auto">
+                    {selectedStory.title}
+                </h2>
 
                 <button
                     onClick={() => savedPin ? updatePin(null) : updatePin(selectedStory.title)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border"
-                    style={{
-                        background: savedPin ? '#11457E' : 'white',
-                        color: savedPin ? 'white' : '#64748b',
-                        borderColor: savedPin ? '#11457E' : '#e2e8f0',
-                    }}
+                    aria-pressed={!!savedPin}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors border focus-ring ${
+                        savedPin
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-surface text-muted border-line hover:border-muted/50 hover:text-ink'
+                    }`}
                 >
-                    {savedPin ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+                    {savedPin ? <PinOff size={14}/> : <Pin size={14}/>}
                     {savedPin ? 'Saved' : 'Save'}
                 </button>
             </header>
 
             {/* Language toggle bar */}
-            <div className="flex bg-white border-b border-slate-100">
+            <div className="flex px-4 sm:px-5 bg-surface border-b border-line">
                 <button
                     onClick={() => setShowTranslation(false)}
-                    className="flex-1 py-2.5 text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-                    style={{
-                        color: !showTranslation ? (isCzech ? '#D71920' : '#11457E') : '#94a3b8',
-                        borderBottom: !showTranslation ? `2px solid ${isCzech ? '#D71920' : '#11457E'}` : '2px solid transparent',
-                    }}
+                    className={tabClass(!showTranslation)}
                 >
                     {originalLabel}
                 </button>
                 <button
                     onClick={() => setShowTranslation(true)}
-                    className="flex-1 py-2.5 text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-                    style={{
-                        color: showTranslation ? '#11457E' : '#94a3b8',
-                        borderBottom: showTranslation ? '2px solid #11457E' : '2px solid transparent',
-                    }}
+                    className={tabClass(showTranslation)}
                 >
                     {translationLabel}
                 </button>
             </div>
 
             {/* Content */}
-            <main className="flex-1 overflow-y-auto px-4 py-6 max-w-2xl mx-auto w-full">
+            <main className="flex-1 overflow-y-auto px-5 py-8 max-w-2xl mx-auto w-full">
                 <div className="relative">
                     <div
-                        className="transition-all duration-500"
+                        className="transition-all duration-300"
                         style={{
                             opacity: showTranslation ? 0 : 1,
                             transform: showTranslation ? 'translateY(8px)' : 'translateY(0)',
@@ -108,13 +112,13 @@ export const StoryView = () => {
                             pointerEvents: showTranslation ? 'none' : 'auto',
                         }}
                     >
-                        <p className="text-base leading-8 text-slate-800 whitespace-pre-line font-medium">
+                        <p className="font-serif text-[17px] leading-[1.9] whitespace-pre-line">
                             {selectedStory.languageText.replace(/\\n/g, '\n')}
                         </p>
                     </div>
 
                     <div
-                        className="transition-all duration-500"
+                        className="transition-all duration-300"
                         style={{
                             opacity: showTranslation ? 1 : 0,
                             transform: showTranslation ? 'translateY(0)' : 'translateY(8px)',
@@ -123,7 +127,7 @@ export const StoryView = () => {
                             pointerEvents: showTranslation ? 'auto' : 'none',
                         }}
                     >
-                        <p className="text-base leading-8 text-slate-500 italic whitespace-pre-line font-medium">
+                        <p className="text-[15px] leading-[1.9] text-muted italic whitespace-pre-line">
                             {selectedStory.originalText.replace(/\\n/g, '\n')}
                         </p>
                     </div>
@@ -131,13 +135,13 @@ export const StoryView = () => {
             </main>
 
             {/* Footer toggle */}
-            <footer className="sticky bottom-0 bg-white border-t border-slate-100 p-4">
+            <footer className="sticky bottom-0 bg-surface border-t border-line p-4">
                 <button
                     onClick={() => setShowTranslation(prev => !prev)}
-                    className="w-full max-w-md mx-auto flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-black uppercase tracking-widest text-white transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
-                    style={{ background: showTranslation ? '#475569' : (isCzech ? '#D71920' : '#11457E'), display: 'flex' }}
+                    className="w-full max-w-md mx-auto flex items-center justify-center gap-2 py-3 rounded-lg
+                               text-sm font-medium bg-ink text-paper hover:bg-black transition-colors focus-ring"
                 >
-                    {showTranslation ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showTranslation ? <EyeOff size={15}/> : <Eye size={15}/>}
                     {showTranslation ? 'Hide translation' : 'Show translation'}
                 </button>
             </footer>

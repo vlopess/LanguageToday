@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    html {
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+    }
+
+    body {
+        @apply bg-paper text-ink font-sans;
+    }
+
+    ::selection {
+        @apply bg-primary text-white;
+    }
+}
+
+@layer components {
+    /* Shared focus style for interactive elements */
+    .focus-ring {
+        @apply outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0;
+    }
+}

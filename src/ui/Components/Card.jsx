@@ -2,7 +2,7 @@
 export const Card = ({ children, className = "", ...props }) => (
     <div
         {...props}
-        className={`bg-white border rounded-2xl ${className}`}
+        className={`bg-surface border border-line rounded-xl ${className}`}
     >
         {children}
     </div>

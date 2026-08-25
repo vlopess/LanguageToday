@@ -1,10 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, Play, Pause, RotateCcw, RefreshCw, Eye, EyeOff, Mic } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Play, Pause, RotateCcw, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { useContent } from '../../contexts/ContentContext.jsx';
-
-const display = { fontFamily: "'Bricolage Grotesque', sans-serif" };
-const body    = { fontFamily: "'DM Sans', sans-serif" };
+import { getLanguageMeta, supportLanguageName } from '../../lib/languages.js';
 
 const THEMES = ['Travel', 'Business', 'Everyday', 'Technology', 'Health', 'Cooking', 'Culture', 'Sports', 'Science', 'News'];
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
@@ -14,21 +11,22 @@ const FONT_OPTIONS = [
     { label: 'Mono', value: "'Courier New', monospace" },
 ];
 
+function getLangMeta(language) {
+    return getLanguageMeta(language) || { name: 'English', nativeName: 'English', accentColor: '#11457E' };
+}
+
 function getLangName(language) {
-    if (language === 'czech')   return 'Czech';
-    if (language === 'spanish') return 'Spanish';
-    return 'English';
+    return getLangMeta(language).name;
 }
 
 function getAccent(language) {
-    if (language === 'czech')   return '#D71920';
-    if (language === 'spanish') return '#F5A623';
-    return '#11457E';
+    return getLangMeta(language).accentColor || '#11457E';
 }
 
-async function generateTeleprompterText({ language, level, theme, duration, apiKey }) {
+async function generateTeleprompterText({ language, supportLanguage = 'portuguese', level, theme, duration, apiKey }) {
     const wordCount = Math.round((duration / 60) * 130);
     const langName  = getLangName(language);
+    const supportLang = supportLanguageName(supportLanguage);
 
     const prompt = `Generate a continuous, natural ${langName} text at CEFR level ${level} about the theme "${theme}".
 Rules:
@@ -36,7 +34,7 @@ Rules:
 - No titles, subtitles, headers, or bullet points — only flowing prose
 - Suitable for reading aloud at a steady pace
 - Grammar and vocabulary strictly at ${level} level
-After the main text, write the marker TRADUÇÃO: on a new line, then the full Brazilian Portuguese translation.
+After the main text, write the marker TRANSLATION: on a new line, then the full ${supportLang} translation.
 Return only the text and translation. Nothing else.`;
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -56,7 +54,8 @@ Return only the text and translation. Nothing else.`;
     if (!response.ok) throw new Error(await response.text());
     const result = await response.json();
     const full   = result.choices?.[0]?.message?.content || '';
-    const parts  = full.split(/TRADUÇÃO:/i);
+    // "TRANSLATION:" is the current marker; keep legacy "TRADUÇÃO:" working too
+    const parts  = full.split(/TRANSLATION:|TRADUÇÃO:/i);
     return {
         mainText:    parts[0].trim(),
         translation: parts[1]?.trim() || '',
@@ -65,7 +64,7 @@ Return only the text and translation. Nothing else.`;
 
 /* ─── Config Screen ───────────────────────────────────────────────────────── */
 
-function ConfigScreen({ onStartAI, onStartOwn, language, level }) {
+function ConfigScreen({ onStartAI, onStartOwn, language, level, error }) {
     const [theme,      setTheme]      = useState('Everyday');
     const [duration,   setDuration]   = useState(60);
     const [speed,      setSpeed]      = useState(40);
@@ -75,142 +74,81 @@ function ConfigScreen({ onStartAI, onStartOwn, language, level }) {
     const [mode,       setMode]       = useState('ai');
     const [ownText,    setOwnText]    = useState('');
 
-    const accent = getAccent(language);
     const wordCount = ownText.trim() ? ownText.trim().split(/\s+/).length : 0;
 
     const displaySettings = { speed, fontSize, fontFamily, guideLine };
 
+    const inputClass =
+        "w-full px-3.5 py-2.5 rounded-lg border border-line bg-surface text-sm text-ink placeholder:text-muted/60 outline-none focus-ring focus:border-primary transition-colors";
+
     return (
-        <div className="min-h-screen pb-10" style={{ background: '#F7F5F0', ...body }}>
+        <div className="min-h-screen pb-10">
             {/* Header */}
-            <header className="sticky top-0 z-10 bg-white border-b border-[#E5E0D8] px-5 py-4 flex items-center gap-3">
-                <a href="/dashboard" className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                    <ArrowLeft className="w-4 h-4" />
+            <header className="sticky top-0 z-10 bg-surface border-b border-line px-5 h-14 flex items-center gap-3">
+                <a href="/dashboard" aria-label="Back"
+                    className="p-2 -ml-2 text-muted hover:text-ink transition-colors focus-ring">
+                    <ArrowLeft size={17}/>
                 </a>
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Practice</p>
-                    <h1 className="text-sm font-black text-slate-800" style={display}>Teleprompter</h1>
+                    <h1 className="font-display font-bold tracking-tight text-sm">Teleprompter</h1>
+                    <p className="text-[12px] text-muted leading-tight">Leitura em voz alta</p>
                 </div>
             </header>
 
-            <div className="max-w-xl mx-auto px-5 pt-6 space-y-5">
+            <div className="max-w-xl mx-auto px-5 pt-6 space-y-6">
 
-                {/* Profile badge */}
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black px-3 py-1.5 rounded-full text-white"
-                        style={{ background: accent }}>
-                        {getLangName(language)}
-                    </span>
-                    <span className="text-[10px] font-black px-3 py-1.5 rounded-full text-slate-600 border border-[#E5E0D8] bg-white">
-                        {level}
-                    </span>
-                </div>
+                {error && (
+                    <p role="alert" className="text-danger bg-danger-soft border border-danger/20 rounded-lg px-3.5 py-2.5 text-[13px]">
+                        {error}
+                    </p>
+                )}
+
+                {/* Context line */}
+                <p className="text-[13px] text-muted">
+                    {getLangName(language)} · {level}
+                </p>
 
                 {/* Theme + Duration (AI only) */}
                 {mode === 'ai' && (
-                    <div className="bg-white rounded-[1.5rem] p-5 border border-[#E5E0D8] space-y-4">
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-3">Theme</label>
-                            <div className="flex flex-wrap gap-2">
-                                {THEMES.map(t => (
+                    <fieldset>
+                        <legend className="text-[13px] font-medium mb-2">Tema</legend>
+                        <div className="flex flex-wrap gap-1.5">
+                            {THEMES.map(t => {
+                                const active = theme === t;
+                                return (
                                     <button key={t} onClick={() => setTheme(t)}
-                                        className="px-3 py-1.5 rounded-full text-xs font-bold transition-all border"
-                                        style={{
-                                            background: theme === t ? accent : 'white',
-                                            color: theme === t ? 'white' : '#64748b',
-                                            borderColor: theme === t ? accent : '#E5E0D8',
-                                        }}>
+                                        aria-pressed={active}
+                                        className={`px-3 py-1.5 rounded-md text-[13px] border transition-colors focus-ring ${
+                                            active
+                                                ? 'border-primary bg-primary-soft text-primary font-medium'
+                                                : 'border-line text-muted hover:border-muted/50'
+                                        }`}>
                                         {t}
                                     </button>
-                                ))}
-                            </div>
+                                );
+                            })}
                         </div>
 
-                        <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
-                                Duration — {duration}s (~{Math.round((duration / 60) * 130)} words)
-                            </label>
-                            <input type="range" min={30} max={180} step={15} value={duration}
-                                onChange={e => setDuration(Number(e.target.value))}
-                                className="w-full accent-current" style={{ color: accent }} />
-                            <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
-                                <span>30s</span><span>3 min</span>
-                            </div>
-                        </div>
-                    </div>
+                        <label htmlFor="tp-duration" className="block text-[13px] font-medium mt-5 mb-1.5">
+                            Length — {duration}s (~{Math.round((duration / 60) * 130)} words)
+                        </label>
+                        <input id="tp-duration" type="range" min={30} max={180} step={15} value={duration}
+                            onChange={e => setDuration(Number(e.target.value))}
+                            className="w-full accent-primary" />
+                    </fieldset>
                 )}
 
-                {/* Display settings */}
-                <div className="bg-white rounded-[1.5rem] p-5 border border-[#E5E0D8] space-y-4">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Display</label>
-
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-bold text-slate-600">Speed</span>
-                            <span className="text-xs font-black text-slate-800">{speed}</span>
-                        </div>
-                        <input type="range" min={10} max={120} value={speed}
-                            onChange={e => setSpeed(Number(e.target.value))}
-                            className="w-full" style={{ accentColor: accent }} />
-                        <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
-                            <span>Slow</span><span>Fast</span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-bold text-slate-600">Font size</span>
-                            <span className="text-xs font-black text-slate-800">{fontSize}px</span>
-                        </div>
-                        <input type="range" min={24} max={96} value={fontSize}
-                            onChange={e => setFontSize(Number(e.target.value))}
-                            className="w-full" style={{ accentColor: accent }} />
-                        <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
-                            <span>24px</span><span>96px</span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <span className="text-xs font-bold text-slate-600 block mb-2">Font family</span>
-                        <div className="grid grid-cols-3 gap-2">
-                            {FONT_OPTIONS.map(f => (
-                                <button key={f.value} onClick={() => setFontFamily(f.value)}
-                                    className="py-2 rounded-xl text-xs font-bold border-2 transition-all"
-                                    style={{
-                                        fontFamily: f.value,
-                                        background: fontFamily === f.value ? accent : 'white',
-                                        color: fontFamily === f.value ? 'white' : '#64748b',
-                                        borderColor: fontFamily === f.value ? accent : '#E5E0D8',
-                                    }}>
-                                    {f.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div>
-                        <button onClick={() => setGuideLine(g => !g)}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold border-2 transition-all"
-                            style={{
-                                background: guideLine ? accent : 'white',
-                                color: guideLine ? 'white' : '#64748b',
-                                borderColor: guideLine ? accent : '#E5E0D8',
-                            }}>
-                            Guide line
-                        </button>
-                    </div>
-                </div>
-
                 {/* Mode selector */}
-                <div className="bg-white rounded-[1.5rem] p-5 border border-[#E5E0D8]">
-                    <div className="flex rounded-2xl border border-[#E5E0D8] overflow-hidden mb-4">
-                        {[{ value: 'ai', label: 'Generate with AI' }, { value: 'own', label: 'My own text' }].map(({ value, label }) => (
+                <div>
+                    <div className="flex bg-sunken rounded-lg p-1 mb-4">
+                        {[{ value: 'ai', label: 'Generate with AI' }, { value: 'own', label: 'My text' }].map(({ value, label }) => (
                             <button key={value} onClick={() => setMode(value)}
-                                className="flex-1 py-2.5 text-xs font-black transition-all"
-                                style={{
-                                    background: mode === value ? accent : 'white',
-                                    color: mode === value ? 'white' : '#94a3b8',
-                                }}>
+                                aria-pressed={mode === value}
+                                className={`flex-1 py-2 rounded-md text-[13px] font-medium transition-colors focus-ring ${
+                                    mode === value
+                                        ? 'bg-surface text-ink border border-line'
+                                        : 'text-muted hover:text-ink'
+                                }`}>
                                 {label}
                             </button>
                         ))}
@@ -221,29 +159,88 @@ function ConfigScreen({ onStartAI, onStartOwn, language, level }) {
                             <textarea
                                 value={ownText}
                                 onChange={e => setOwnText(e.target.value)}
-                                placeholder="Paste or type your text here..."
+                                placeholder="Paste or type your text here…"
                                 rows={6}
-                                className="w-full p-4 rounded-2xl border-2 border-[#E5E0D8] text-sm text-slate-700 resize-none outline-none focus:border-slate-400 transition-colors"
-                                style={body}
+                                className={`${inputClass} resize-none leading-relaxed`}
                             />
-                            <p className="text-[10px] text-slate-400 font-bold mt-1 text-right">{wordCount} words</p>
+                            <p className="text-[12px] text-muted mt-1 text-right tabular-nums">{wordCount} palavras</p>
                             <button
                                 onClick={() => onStartOwn({ text: ownText, ...displaySettings })}
                                 disabled={!ownText.trim()}
-                                className="w-full mt-3 py-4 rounded-2xl text-sm font-black text-white transition-all"
-                                style={{ background: ownText.trim() ? accent : '#CBD5E1', cursor: ownText.trim() ? 'pointer' : 'not-allowed' }}>
+                                className="w-full mt-3 py-3 rounded-lg text-sm font-semibold transition-colors focus-ring
+                                           bg-primary text-white hover:bg-primary-dark
+                                           disabled:bg-sunken disabled:text-muted/60 disabled:cursor-not-allowed">
                                 Start
                             </button>
                         </div>
                     ) : (
                         <button
                             onClick={() => onStartAI({ language, level, theme, duration, ...displaySettings })}
-                            className="w-full py-4 rounded-2xl text-sm font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
-                            style={{ background: accent }}>
+                            className="w-full py-3 rounded-lg text-sm font-semibold transition-colors focus-ring
+                                       bg-primary text-white hover:bg-primary-dark">
                             Generate text with AI
                         </button>
                     )}
                 </div>
+
+                {/* Display settings */}
+                <details className="group">
+                    <summary className="text-[13px] font-medium cursor-pointer select-none list-none
+                                        flex items-center justify-between py-3 border-t border-line">
+                            Display settings
+                        <span className="text-muted text-[12px] group-open:hidden">mostrar</span>
+                        <span className="text-muted text-[12px] hidden group-open:inline">ocultar</span>
+                    </summary>
+
+                    <div className="space-y-5 pt-4 pb-2">
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <span className="text-[13px] text-muted">Speed</span>
+                                <span className="text-[13px] tabular-nums">{speed}</span>
+                            </div>
+                            <input type="range" min={10} max={120} value={speed}
+                                onChange={e => setSpeed(Number(e.target.value))}
+                                className="w-full accent-primary" />
+                        </div>
+
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <span className="text-[13px] text-muted">Tamanho da fonte</span>
+                                <span className="text-[13px] tabular-nums">{fontSize}px</span>
+                            </div>
+                            <input type="range" min={24} max={96} value={fontSize}
+                                onChange={e => setFontSize(Number(e.target.value))}
+                                className="w-full accent-primary" />
+                        </div>
+
+                        <div>
+                            <span className="text-[13px] text-muted block mb-1.5">Font</span>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {FONT_OPTIONS.map(f => {
+                                    const active = fontFamily === f.value;
+                                    return (
+                                        <button key={f.value} onClick={() => setFontFamily(f.value)}
+                                            aria-pressed={active}
+                                            style={{ fontFamily: f.value }}
+                                            className={`py-2 rounded-md text-[13px] border transition-colors focus-ring ${
+                                                active
+                                                    ? 'border-primary bg-primary-soft text-primary font-medium'
+                                                    : 'border-line text-muted hover:border-muted/50'
+                                            }`}>
+                                            {f.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <label className="flex items-center justify-between py-1 cursor-pointer">
+                            <span className="text-[13px] text-muted">Linha guia</span>
+                            <input type="checkbox" checked={guideLine} onChange={() => setGuideLine(g => !g)}
+                                className="w-4 h-4 accent-primary"/>
+                        </label>
+                    </div>
+                </details>
             </div>
         </div>
     );
@@ -253,23 +250,13 @@ function ConfigScreen({ onStartAI, onStartOwn, language, level }) {
 
 function GeneratingScreen({ params }) {
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-8 text-center"
-            style={{ background: '#0D1B2A', ...body }}>
-            <div className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center animate-pulse"
-                style={{ background: getAccent(params.language) }}>
-                <Mic className="w-8 h-8 text-white" />
-            </div>
+        <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-8 text-center bg-ink">
+            <span className="w-7 h-7 border-2 border-white/25 border-t-white rounded-full animate-spin"/>
             <div>
-                <h2 className="text-white font-black text-xl mb-2" style={display}>Generating text…</h2>
-                <p className="text-white/50 text-sm font-medium">Preparing your reading session</p>
-            </div>
-            <div className="flex gap-2 mt-2">
-                {[getLangName(params.language), params.level, params.theme].map(b => (
-                    <span key={b} className="text-[10px] font-black px-3 py-1.5 rounded-full text-white/70"
-                        style={{ background: 'rgba(255,255,255,0.08)' }}>
-                        {b}
-                    </span>
-                ))}
+                <h2 className="text-paper font-display font-bold tracking-tight text-lg mb-1">Generating text…</h2>
+                <p className="text-paper/50 text-sm">
+                    {[getLangName(params.language), params.level, params.theme].filter(Boolean).join(' · ')}
+                </p>
             </div>
         </div>
     );
@@ -349,7 +336,7 @@ function PrompterScreen({ mainText, translation, settings, aiMode, onClose, onRe
     const langBadge = getLangName(settings.language);
 
     return (
-        <div className="fixed inset-0 flex flex-col" style={{ background: '#0D1B2A' }}>
+        <div className="fixed inset-0 flex flex-col bg-ink">
 
             {/* Progress bar */}
             <div className="absolute top-0 left-0 right-0 h-1 z-30" style={{ background: 'rgba(255,255,255,0.08)' }}>
@@ -358,16 +345,11 @@ function PrompterScreen({ mainText, translation, settings, aiMode, onClose, onRe
 
             {/* Top bar */}
             <div className="relative z-20 flex items-center justify-between px-4 pt-5 pb-3 gap-3">
-                <div className="flex gap-2 flex-wrap">
-                    {[langBadge, settings.level, aiMode ? settings.theme : 'Custom text']
+                <p className="text-[12px] text-white/50 truncate">
+                    {[langBadge, settings.level, aiMode ? settings.theme : 'My own text']
                         .filter(Boolean)
-                        .map(b => (
-                            <span key={b} className="text-[10px] font-black px-2.5 py-1 rounded-full text-white/60"
-                                style={{ background: 'rgba(255,255,255,0.08)' }}>
-                                {b}
-                            </span>
-                        ))}
-                </div>
+                        .join(' · ')}
+                </p>
                 <div className="flex items-center gap-2 flex-shrink-0">
                     {aiMode && (
                         <button onClick={() => setShowTranslation(t => !t)}
@@ -422,21 +404,20 @@ function PrompterScreen({ mainText, translation, settings, aiMode, onClose, onRe
             {/* Translation panel */}
             {aiMode && showTranslation && (
                 <div className="absolute bottom-28 left-0 right-0 z-20 px-4">
-                    <div className="max-w-xl mx-auto rounded-2xl p-4 overflow-y-auto max-h-44 border border-white/10"
-                        style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)' }}>
-                        <p className="text-[10px] font-black uppercase tracking-widest mb-2"
-                            style={{ color: accent }}>Translation</p>
+                    <div className="max-w-xl mx-auto rounded-lg p-4 overflow-y-auto max-h-44 border border-white/10"
+                        style={{ background: 'rgba(0,0,0,0.6)' }}>
+                        <p className="text-[11px] font-medium uppercase tracking-wide mb-2 text-paper/40">Translation</p>
                         <p className="text-white/70 text-sm leading-relaxed">{translation}</p>
                     </div>
                 </div>
             )}
 
             {/* Controls */}
-            <div className="relative z-20 px-4 pb-6 pt-3" style={{ background: 'rgba(13,27,42,0.95)', backdropFilter: 'blur(8px)' }}>
+            <div className="relative z-20 px-4 pb-6 pt-3 border-t border-white/10 bg-ink">
                 {/* Sliders */}
                 <div className="max-w-xl mx-auto grid grid-cols-2 gap-4 mb-4">
                     <div>
-                        <div className="flex justify-between text-[9px] font-black text-white/30 mb-1">
+                        <div className="flex justify-between text-[11px] font-medium text-white/40 mb-1">
                             <span>Speed</span><span>{speed}</span>
                         </div>
                         <input type="range" min={10} max={120} value={speed}
@@ -444,8 +425,8 @@ function PrompterScreen({ mainText, translation, settings, aiMode, onClose, onRe
                             className="w-full" style={{ accentColor: accent }} />
                     </div>
                     <div>
-                        <div className="flex justify-between text-[9px] font-black text-white/30 mb-1">
-                            <span>Font size</span><span>{fontSize}px</span>
+                        <div className="flex justify-between text-[11px] font-medium text-white/40 mb-1">
+                            <span>Fonte</span><span>{fontSize}px</span>
                         </div>
                         <input type="range" min={24} max={96} value={fontSize}
                             onChange={e => setFontSize(Number(e.target.value))}
@@ -456,13 +437,15 @@ function PrompterScreen({ mainText, translation, settings, aiMode, onClose, onRe
                 {/* Buttons */}
                 <div className="max-w-xl mx-auto flex items-center justify-center gap-3">
                     <button onClick={restart}
-                        className="p-3 rounded-2xl text-white/50 hover:text-white transition-colors"
+                        aria-label="Restart"
+                        className="p-3 rounded-lg text-white/50 hover:text-white transition-colors focus-ring"
                         style={{ background: 'rgba(255,255,255,0.06)' }}>
                         <RotateCcw className="w-5 h-5" />
                     </button>
 
                     <button onClick={togglePlay}
-                        className="w-14 h-14 rounded-2xl flex items-center justify-center text-white transition-all hover:brightness-110 active:scale-95"
+                        aria-label={isPlaying ? 'Pause' : 'Play'}
+                        className="w-14 h-14 rounded-lg flex items-center justify-center text-white transition-[filter] hover:brightness-110 focus-ring"
                         style={{ background: accent }}>
                         {isPlaying
                             ? <Pause className="w-6 h-6" />
@@ -470,7 +453,8 @@ function PrompterScreen({ mainText, translation, settings, aiMode, onClose, onRe
                     </button>
 
                     <button onClick={onRegenerate}
-                        className="p-3 rounded-2xl text-white/50 hover:text-white transition-colors"
+                        aria-label="Regenerate"
+                        className="p-3 rounded-lg text-white/50 hover:text-white transition-colors focus-ring"
                         style={{ background: 'rgba(255,255,255,0.06)' }}>
                         <RefreshCw className="w-5 h-5" />
                     </button>
@@ -500,7 +484,11 @@ export const TeleprompterView = () => {
         setError(null);
         try {
             const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-            const { mainText: t, translation: tr } = await generateTeleprompterText({ ...params, apiKey });
+            const { mainText: t, translation: tr } = await generateTeleprompterText({
+                ...params,
+                supportLanguage: userProfile?.supportLanguage || 'portuguese',
+                apiKey,
+            });
             setMainText(t);
             setTranslation(tr);
             setView('prompter');

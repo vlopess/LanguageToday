@@ -1,37 +1,66 @@
-import {createContext, useContext, useEffect, useState} from 'react';
+import {createContext, useContext, useEffect, useRef, useState} from 'react';
 import { useAuth } from './AuthContext.jsx';
-import { getChatSessions, getSavedStories } from '../lib/db.js';
+import { getChatSessions, getSavedStories, getStudyTopics, saveStudyTopics, deleteStudyTopics, getDailyStories, saveDailyStories } from '../lib/db.js';
+import { fetchLanguages, getLanguageMeta, DEFAULT_SUPPORT_LANGUAGE } from '../lib/languages.js';
+import { CURRICULUM, generateAcademicPath } from '../lib/generateTopics.js';
+import { generateAndSaveSession } from '../lib/generateSession.js';
+import { migrateOldSessionKeys, getCurrentSessionId, getSessions, saveSession } from '../lib/sessions.js';
 
 const ContentContext = createContext(null);
 
+// Legacy per-language localStorage suffixes (-en/-es/-cz) → generic -${code}
+const LEGACY_CHAT_KEYS = [
+    ['chatHistory-en', 'chatHistory-english'],
+    ['chatHistory-es', 'chatHistory-spanish'],
+    ['chatHistory-cz', 'chatHistory-czech'],
+    ['currentChat-en', 'currentChat-english'],
+    ['currentChat-es', 'currentChat-spanish'],
+    ['currentChat-cz', 'currentChat-czech'],
+];
+
+function migrateLegacyChatKeys() {
+    for (const [legacy, modern] of LEGACY_CHAT_KEYS) {
+        if (localStorage.getItem(modern) !== null || localStorage.getItem(legacy) === null) continue;
+        localStorage.setItem(modern, localStorage.getItem(legacy));
+    }
+}
+
+// Load session data from the sessions array into state
+function loadCurrentSession() {
+    const migrated = migrateOldSessionKeys();
+    if (migrated) return migrated;
+
+    const id = getCurrentSessionId();
+    if (!id) return null;
+    const sessions = getSessions();
+    return sessions.find(s => s.id === id) || null;
+}
+
 export function ContentProvider({ children }) {
 
-    const getChatHistoryKey = (lang) => {
-        if (lang === "english") return "chatHistory-en";
-        if (lang === "spanish") return "chatHistory-es";
-        return "chatHistory-cz";
-    };
+    const [languages, setLanguages] = useState([]);
+    const [languageMeta, setLanguageMeta] = useState(null);
+    const [studyMaterialLoading, setStudyMaterialLoading] = useState(false);
 
-    const getCurrentChatKey = (lang) => {
-        if (lang === "english") return "currentChat-en";
-        if (lang === "spanish") return "currentChat-es";
-        return "currentChat-cz";
-    };
+    const getChatHistoryKey = (lang) => `chatHistory-${lang}`;
+    const getCurrentChatKey = (lang) => `currentChat-${lang}`;
 
+    // Session data — hydrated from the sessions array on mount
     const [sessionTasks, setSessionTasks] = useState(() => {
-        const stored = localStorage.getItem('sessionTasks');
-        return stored ? JSON.parse(stored) : [];
+        const session = loadCurrentSession();
+        return session?.tasks || [];
     });
 
     const [reviewTasks, setReviewTasks] = useState(() => {
-        const stored = localStorage.getItem('reviewTasks');
-        return stored ? JSON.parse(stored) : [];
+        const session = loadCurrentSession();
+        return session?.reviewTasks || [];
     });
 
     const [sessionStories, setSessionStories] = useState(() => {
-        const stored = localStorage.getItem('sessionStories');
-        return stored ? JSON.parse(stored) : [];
+        const session = loadCurrentSession();
+        return session?.stories || [];
     });
+    const [sessionStoriesLoading, setSessionStoriesLoading] = useState(false);
 
     const [selectedStory, setSelectedStory] = useState(() => {
         const stored = localStorage.getItem('selectedStory');
@@ -42,7 +71,7 @@ export function ContentProvider({ children }) {
         const stored = localStorage.getItem('userProfile');
         return stored
             ? JSON.parse(stored)
-            : { name: '', level: 'beginner', dailyTime: '15', completedOnboarding: false };
+            : { name: '', level: 'beginner', dailyTime: '15', completedOnboarding: false, supportLanguage: DEFAULT_SUPPORT_LANGUAGE };
     });
 
     const [savedStories, setSavedStories] = useState(() => {
@@ -50,15 +79,19 @@ export function ContentProvider({ children }) {
         return stored ? JSON.parse(stored) : [];
     });
 
+    // No hardcoded default language: null means "not chosen yet".
     const [currentLanguage, setCurrentLanguage]  = useState(() => {
-        const stored = localStorage.getItem('currentLanguage');
-        return stored ? JSON.parse(stored) : 'czech';
+        try {
+            const stored = JSON.parse(localStorage.getItem('currentLanguage'));
+            return typeof stored === 'string' ? stored : null;
+        } catch {
+            return null;
+        }
     });
 
     const { userId } = useAuth();
 
     const [studyMaterial, setStudyMaterial] = useState([]);
-
 
     const [selectedStudyTopic, setSelectedStudyTopic] = useState(() => {
         const stored = localStorage.getItem('selectedStudyTopic');
@@ -69,13 +102,31 @@ export function ContentProvider({ children }) {
     const [currentChat, setCurrentChat] = useState(null);
     const [needsSessionGeneration, setNeedsSessionGeneration] = useState(false);
 
+    /* ── Language catalog ── */
     useEffect(() => {
+        let cancelled = false;
+        fetchLanguages().then(list => {
+            if (!cancelled) setLanguages(list);
+        });
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        setLanguageMeta(getLanguageMeta(currentLanguage, languages));
+    }, [currentLanguage, languages]);
+
+    /* ── Chat storage (per target language) ── */
+    useEffect(() => {
+        migrateLegacyChatKeys();
+    }, []);
+
+    useEffect(() => {
+        if (!currentLanguage) return;
         const historyKey = getChatHistoryKey(currentLanguage);
         const currentChatKey = getCurrentChatKey(currentLanguage);
 
         const storedHistory = localStorage.getItem(historyKey);
         const storedCurrentChat = localStorage.getItem(currentChatKey);
-
 
         const parseChat = (chat) => {
             if (!chat?.scenario) return chat;
@@ -95,17 +146,18 @@ export function ContentProvider({ children }) {
 
     }, [currentLanguage]);
 
+    /* ── Persist session data back to sessions array ── */
     useEffect(() => {
-        localStorage.setItem('sessionTasks', JSON.stringify(sessionTasks));
-    }, [sessionTasks]);
-
-    useEffect(() => {
-        localStorage.setItem('reviewTasks', JSON.stringify(reviewTasks));
-    }, [reviewTasks]);
-
-    useEffect(() => {
-        localStorage.setItem('sessionStories', JSON.stringify(sessionStories));
-    }, [sessionStories]);
+        const id = getCurrentSessionId();
+        if (!id) return;
+        const sessions = getSessions();
+        const idx = sessions.findIndex(s => s.id === id);
+        if (idx < 0) return;
+        sessions[idx].tasks = sessionTasks;
+        sessions[idx].reviewTasks = reviewTasks;
+        sessions[idx].stories = sessionStories;
+        localStorage.setItem('sessions', JSON.stringify(sessions));
+    }, [sessionTasks, reviewTasks, sessionStories]);
 
     useEffect(() => {
         localStorage.setItem('selectedStory', JSON.stringify(selectedStory));
@@ -124,18 +176,20 @@ export function ContentProvider({ children }) {
     }, [savedStories]);
 
     useEffect(() => {
+        if (!currentLanguage) return;
+        localStorage.setItem('currentLanguage', JSON.stringify(currentLanguage));
+
         const historyKey = getChatHistoryKey(currentLanguage);
         localStorage.setItem(historyKey, JSON.stringify(chatHistory));
-    }, [chatHistory]);
+    }, [chatHistory, currentLanguage]);
 
     useEffect(() => {
-        console.log('currentChat', currentChat);
+        if (!currentLanguage) return;
         const currentChatKey = getCurrentChatKey(currentLanguage);
         localStorage.setItem(currentChatKey, JSON.stringify(currentChat));
-    }, [currentChat]);
+    }, [currentChat, currentLanguage]);
 
-
-    // Fires only on login to trigger session generation
+    // Fires only on login to trigger session selection
     useEffect(() => {
         if (!userId) return;
         if (sessionStorage.getItem('freshLogin') === 'true') {
@@ -146,7 +200,7 @@ export function ContentProvider({ children }) {
 
     // Reload DB data whenever user or language changes
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !currentLanguage) return;
         let cancelled = false;
 
         // Load saved stories from DB (language-scoped)
@@ -167,332 +221,95 @@ export function ContentProvider({ children }) {
         return () => { cancelled = true; };
     }, [userId, currentLanguage]);
 
+    /* ── Stories: shared DB cache → AI fallback ── */
+    const storiesGeneratingRef = useRef(false);
+
     useEffect(() => {
-        localStorage.setItem('currentLanguage', JSON.stringify(currentLanguage));
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setStudyMaterial(
-            () => {
-                if (currentLanguage === "spanish") {
-                    return [
-                        {
-                            topic: "Presentarte",
-                            emoji: "👋",
-                            keyPhrases: `**¡Hola!**
-                [OH-la]
-                Oi!
+        if (!currentLanguage) return;
+        if (storiesGeneratingRef.current) return;
+        storiesGeneratingRef.current = true;
+        setSessionStoriesLoading(true);
 
-                **Buenos días**
-                [BWEH-nos DEE-as]
-                Bom dia
+        (async () => {
+            try {
+                let stories = await getDailyStories(currentLanguage);
 
-                **Me llamo Juan.**
-                [meh YA-mo hwan]
-                Meu nome é Juan.
-
-                **Soy estudiante.**
-                [soy es-tood-YAHN-teh]
-                Sou estudante.
-
-                **Tengo 25 años.**
-                Tenho 25 anos.
-
-                **Soy de Brasil.**
-                Sou do Brasil.`,
-                            pattern: `**Me llamo** = usado APENAS para dizer seu nome.
-
-                **Soy** = usado para profissão, nacionalidade e origem.
-
-                Exemplos:
-                - Me llamo Ana.
-                - Soy profesora.
-                - Soy brasileña.`,
-                            practice: `1. Diga seu nome em espanhol.
-                2. Diga sua profissão.
-                3. Diga sua idade.
-                4. Diga de onde você é.
-                5. Combine tudo em uma apresentação.`,
-                            quickReview: `Qual verbo usa para dizer seu nome em espanhol?`
-                        },
-                        {
-                            topic: "Ser vs Estar",
-                            emoji: "⚖️",
-                            keyPhrases: `**Soy** (ser) — identidade permanente
-                **Estoy** (estar) — estado temporário
-
-                Soy médico. (profissão)
-                Estoy cansado. (estado físico)
-                Soy de México. (origem)
-                Estoy en casa. (localização)`,
-                            pattern: `**SER** → identidade, profissão, origem, características permanentes.
-                **ESTAR** → estados temporários, emoções, localização.
-
-                Cuidado: "Soy feliz" (geralmente feliz) vs "Estoy feliz" (agora feliz)`,
-                            practice: `Complete com ser ou estar:
-                1. Yo ___ estudiante.
-                2. Ella ___ cansada.
-                3. Nosotros ___ en Madrid.
-                4. Él ___ médico.
-                5. ¿Cómo ___ tú?`,
-                            quickReview: `Qual a diferença entre "Soy enfermo" e "Estoy enfermo"?`
-                        },
-                        {
-                            topic: "Frases Essenciais",
-                            emoji: "🆘",
-                            keyPhrases: `Por favor
-                Gracias
-                De nada
-                Perdón / Disculpe
-                Sí / No / Quizás
-                No entiendo
-                ¿Puede repetir?
-                ¿Cuánto cuesta?
-                ¿Dónde está el baño?
-                ¿Habla portugués?
-                Mucho gusto
-                Hasta luego`,
-                            pattern: `Estrutura de perguntas básicas:
-                - ¿Dónde? → Onde?
-                - ¿Cómo? → Como?
-                - ¿Qué? → O quê?
-                - ¿Cuánto? → Quanto?
-                - ¿Por qué? → Por quê?`,
-                            practice: `Traduza para espanhol:
-                1. Com licença, onde fica o banheiro?
-                2. Quanto custa?
-                3. Não entendo.
-                4. Pode repetir, por favor?`,
-                            quickReview: `Como se diz "Muito prazer" em espanhol?`
-                        },
-                        {
-                            topic: "Números",
-                            emoji: "🔢",
-                            keyPhrases: `0 cero
-                1 uno
-                2 dos
-                3 tres
-                4 cuatro
-                5 cinco
-                10 diez
-                20 veinte
-                30 treinta
-                100 cien / ciento`,
-                            pattern: `De 16 a 19: formas contraídas
-                16 → dieciséis (não "diez y seis")
-                21 → veintiuno (não "veinte y uno")
-
-                De 31 em diante: separado com "y"
-                31 → treinta y uno`,
-                            practice: `Diga em espanhol:
-                1. Sua idade
-                2. Seu número de telefone
-                3. Preços: 15, 47, 83`,
-                            quickReview: `Como se diz 21 em espanhol?`
-                        },
-                    ];
-                }
-
-                if (currentLanguage === "english") {
-                    return [
-                        {
-                            topic: "Introduce Yourself",
-                            emoji: "👋",
-                            keyPhrases: `**Hi!**
-                    [hai]
-                    
-                    **Hello**
-                    [heh-loh]
-                    
-                    **My name is John.**
-                    
-                    **I am a student.**
-                    
-                    **I am 25 years old.**
-                    
-                    **I am from Brazil.**`,
-                            pattern: `**My name is + Name** → Used to introduce yourself.
-    
-                    **I am + profession/nationality/age**
-                    
-                    Examples:
-                    - My name is Anna.
-                    - I am a teacher.
-                    - I am Brazilian.`,
-                            practice: `1. Say your name.
-                    2. Say your profession.
-                    3. Say your age.
-                    4. Say where you are from.
-                    5. Combine everything in one introduction.`,
-                            quickReview: `1) How do you introduce your name?
-                    2) Translate: "Eu sou engenheiro."
-                    3) Correct: "I am 25 years."`
-                        },
-                        {
-                            topic: "Formal / Informal",
-                            emoji: "👔",
-                            keyPhrases: `**Hi** (informal)
-                    **Hello** (neutral)
-                    **Good morning**
-                    **Good afternoon**
-                    **Good evening**
-                    
-                    **How are you?**`,
-                            pattern: `Formal English often uses:
-                    - Good morning
-                    - Good afternoon
-                    - Good evening
-                    
-                    Informal:
-                    - Hi
-                    - Hey
-                    
-                    Rule: In professional situations → avoid slang.`,
-                            practice: `Choose appropriate greeting:
-                    1. Talking to your boss
-                    2. Talking to your friend
-                    3. Job interview
-                    4. Talking to a child`,
-                            quickReview: `Which greeting is safest in professional settings?`
-                        },
-                        {
-                            topic: "Start a Conversation",
-                            emoji: "💬",
-                            keyPhrases: `How are you?
-                    Where are you from?
-                    What do you do?
-                    Nice to meet you.`,
-                            pattern: `Conversation Example:
-                    
-                    1. A: Hi! How are you?
-                    2. B: I'm good, thanks. And you?
-                    3. A: I'm fine.
-                    4. A: What's your name?
-                    5. B: My name is Eva.
-                    6. A: Where are you from?
-                    7. B: I'm from Brazil.
-                    8. A: What do you do?
-                    9. B: I'm a student.`,
-                            practice: `Change names, countries and professions.
-                    Practice aloud.
-                    Swap roles.`,
-                            quickReview: `What question asks about profession?`
-                        },
-                        {
-                            topic: "Basic Phrases",
-                            emoji: "🆘",
-                            keyPhrases: `Please
-                    Thank you
-                    Excuse me
-                    Yes
-                    No
-                    Maybe
-                    I don't understand
-                    I understand
-                    Help!
-                    How much is it?
-                    Where is the bathroom?
-                    Do you speak Portuguese?
-                    Nice to meet you
-                    Goodbye`,
-                            pattern: `Common question starters:
-                    - Where
-                    - How
-                    - What
-                    - Why
-                    
-                    Structure:
-                    Question word + auxiliary verb + subject`,
-                            practice: `Match English phrases to Portuguese.`,
-                            quickReview: `Translate: "Você entende?"`
-                        },
-                        {
-                            topic: "Alphabet",
-                            emoji: "🔤",
-                            keyPhrases: `A, B, C, D, E, F, G...
-                    Pronunciation example:
-                    A (ei)
-                    B (bi)
-                    C (si)
-                    D (di)
-                    E (i)
-                    F (ef)`,
-                            pattern: `English vowels have multiple sounds.
-                    Example:
-                    A → /æ/ (cat) or /ei/ (name)
-                    
-                    Spelling is not phonetic.`,
-                            practice: `Spell your name aloud.
-                    Spell your city.`,
-                            quickReview: `How do you spell your name?`
-                        },
-                        {
-                            topic: "Numbers",
-                            emoji: "🔢",
-                            keyPhrases: `0 zero
-                    1 one
-                    2 two
-                    3 three
-                    4 four
-                    5 five
-                    10 ten
-                    20 twenty
-                    30 thirty
-                    100 one hundred`,
-                            pattern: `After 20:
-                    21 → twenty-one
-                    22 → twenty-two
-                    
-                    Structure:
-                    Tens + hyphen + unit`,
-                            practice: `Say your age.
-                    Say prices.
-                    Count from 1 to 20.`,
-                            quickReview: `How do you say 45?`
-                        }
-                    ];
-                }
-
-                // DEFAULT → CZECH
-                return [
-                    {
-                        topic: "Introduce yourself",
-                        emoji: "👋",
-                        keyPhrases: `**Ahoj!**
-                [ah-hoy]
-                Hi!
-                
-                **Dobrý den**
-                [doh-bree den]
-                Good day / Hello (formal)
-                
-                **Jmenuju se Petr.**
-                [ymeh-noo-yoo seh pehtr]
-                My name is Petr.
-                
-                **Jsem student.**
-                [ysem stoo-dent]
-                I am a student.
-                
-                **Je mi 25 let.**
-                I am 25 years old.
-                
-                **Pocházím z Brazílie.**
-                I come from Brazil.`,
-                        pattern: `**Jmenuju se** = used ONLY to say your name.
-                
-                **Jsem** = used for profession/nationality.`,
-                        practice: `1. Say your name.
-                2. Say your profession.
-                3. Combine both.`,
-                        quickReview: `Which verb introduces your name?`
+                if (stories.length === 0) {
+                    const profile = userProfile || {};
+                    const supportLang = profile.supportLanguage || DEFAULT_SUPPORT_LANGUAGE;
+                    const content = await generateAndSaveSession(null, currentLanguage, profile, supportLang);
+                    stories = Array.isArray(content.stories) ? content.stories : [];
+                    if (stories.length) {
+                        await saveDailyStories(currentLanguage, stories);
                     }
-                ];
+                }
+
+                setSessionStories(stories);
+            } catch (err) {
+                console.error('[Content] stories loading failed:', err);
+                setSessionStories([]);
+            } finally {
+                setSessionStoriesLoading(false);
+                storiesGeneratingRef.current = false;
             }
-        );
+        })();
+    }, [currentLanguage, userProfile?.level]);
 
-    }, [currentLanguage]);
+    /* ── Academic path: fixed 10-step curriculum; cache → shared DB → AI ── */
+    const generatingRef = useRef(false);
 
+    useEffect(() => {
+        if (!currentLanguage) return;
+        const level = userProfile?.level || 'A1';
+        const cacheKey = `studyMaterial-v2-${currentLanguage}-${level}`;
 
+        // Instant cache hit (localStorage or previously fetched in this session)
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            setStudyMaterial(JSON.parse(cached));
+            setStudyMaterialLoading(false);
+            return;
+        }
 
+        if (generatingRef.current) return;
+        generatingRef.current = true;
+        setStudyMaterial([]);
+        setStudyMaterialLoading(true);
+
+        (async () => {
+            try {
+                // 1. Shared content already generated by any user?
+                let topics = await getStudyTopics(currentLanguage, level);
+
+                // Rows must mirror the fixed curriculum exactly — older
+                // free-form generations fail this check and get regenerated.
+                const matchesCurriculum = topics.length === CURRICULUM.length &&
+                    CURRICULUM.every((step, i) => topics[i]?.topic === step.title);
+
+                // 2. Stale or missing → generate with AI and share globally
+                if (!matchesCurriculum) {
+                    topics = await generateAcademicPath({
+                        targetLanguageName: getLanguageMeta(currentLanguage)?.name || currentLanguage,
+                        supportLanguage: userProfile?.supportLanguage || DEFAULT_SUPPORT_LANGUAGE,
+                        level,
+                    });
+                    if (topics.length) {
+                        await deleteStudyTopics(currentLanguage, level);
+                        saveStudyTopics(currentLanguage, level, topics);
+                    }
+                }
+
+                if (topics.length) localStorage.setItem(cacheKey, JSON.stringify(topics));
+                setStudyMaterial(topics);
+            } catch (err) {
+                console.error('[Content] academic topics generation failed:', err);
+                setStudyMaterial([]);
+            } finally {
+                setStudyMaterialLoading(false);
+                generatingRef.current = false;
+            }
+        })();
+    }, [currentLanguage, userProfile?.level]);
 
     return (
         <ContentContext.Provider value={{
@@ -504,9 +321,11 @@ export function ContentProvider({ children }) {
             setReviewTasks,
             sessionStories,
             setSessionStories,
+            sessionStoriesLoading,
             selectedStory,
             setSelectedStory,
             studyMaterial,
+            studyMaterialLoading,
             selectedStudyTopic,
             setSelectedStudyTopic,
             savedStories,
@@ -519,6 +338,8 @@ export function ContentProvider({ children }) {
             setCurrentLanguage,
             needsSessionGeneration,
             setNeedsSessionGeneration,
+            languages,
+            languageMeta,
         }}>
             {children}
         </ContentContext.Provider>
